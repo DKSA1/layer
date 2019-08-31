@@ -43,13 +43,11 @@ class Router {
 
     private function buildRouteMap()
     {
-        $mapping = [
-            '#shared' => [
-                "filters" => [],
-                "view" => []
-            ],
-            'routes' => []
+        $shared = [
+            "filters" => [],
+            "view" => []
         ];
+        $routes = [];
         // controleurs
         $path = dirname(__DIR__)."\service";
 
@@ -74,12 +72,22 @@ class Router {
                     //has annotation
                     if($controllerAnnotation){
                         if($controllerAnnotation->mapped) {
-                            if($controllerAnnotation->routeName) {
-                                $keyName = $controllerAnnotation->routeName;
+                            $controllerRouteNames = $controllerAnnotation->verifyRouteNames();
+                            if(count($controllerRouteNames) > 0) {
+                                $controllerName = $controllerRouteNames[0];
+                                $routes[$controllerName] = null;
+                                foreach ($controllerRouteNames as $routeName) {
+                                    if(!array_key_exists($routeName, $routes)) {
+                                        $routes[$routeName] = [
+                                           "forward" => $controllerName
+                                        ];
+                                    }
+                                }
                             } else {
-                                $keyName = str_replace("Controller", "", str_replace(".php", "", basename($phpFile)));
+                                $controllerName = str_replace("Controller", "", str_replace(".php", "", basename($phpFile)));
                             }
-                            $mapping['routes'][$keyName] = [
+                            $controllerName = strtolower($controllerName);
+                            $routes[$controllerName] = [
                                 "namespace" => $reflectionClass->name,
                                 "path" => trim($phpFile),
                                 "filters_name" => $controllerAnnotation->filters,
@@ -109,38 +117,54 @@ class Router {
                                                 ];
                                                 $urlPattern.='/{'.$reflectionParameter->getName().'}';
                                             }
-                                            $actionName = $actionAnnotation->routeName == null ? $reflectionMethod->name : $actionAnnotation->routeName;
-                                            $urlPattern = ($controllerAnnotation->api || $actionAnnotation->api ? '/api' : '') .'/'.$keyName.'/'.$actionName.$urlPattern;
+
+                                            $actionRouteNames = $actionAnnotation->verifyRouteNames();
+                                            if(count($actionRouteNames) > 0) {
+                                                $actionName = $actionRouteNames[0];
+                                                $actionName = strtolower($actionName);
+                                                $routes[$controllerName]['actions'][$actionName] = null;
+                                                foreach ($actionRouteNames as $routeName) {
+                                                    if(!array_key_exists($routeName, $routes[$controllerName]['actions'])) {
+                                                        $routes[$controllerName]['actions'][$routeName] = [
+                                                            "forward" => $actionName
+                                                        ];
+                                                    }
+                                                }
+                                            } else {
+                                                $actionName = $reflectionMethod->name;
+                                                $actionName = strtolower($actionName);
+                                            }
+                                            $urlPattern = ($controllerAnnotation->api || $actionAnnotation->api ? '/api' : '') .'/'.$controllerName.'/'.$actionName.$urlPattern;
                                             $viewName = $actionAnnotation->viewName == null ? $reflectionMethod->name : $actionAnnotation->viewName;
                                             $viewName = file_exists(dirname($phpFile).'/view/'.$viewName.'.php') ? $viewName : null;
-                                            $mapping['routes'][$keyName]['actions'][$actionName] = [
+                                            $routes[$controllerName]['actions'][$actionName] = [
                                                 "is_api_action" => $controllerAnnotation->api || $actionAnnotation->api,
                                                 "method_name" => $reflectionMethod->name,
                                                 "url_pattern" => $urlPattern,
-                                                "allowed_methods" => $actionAnnotation->methods,
+                                                "request_methods" => $actionAnnotation->verifyMethods(),
                                                 "filters_name" => $actionAnnotation->filters,
                                                 "view_name" => $controllerAnnotation->api || $actionAnnotation->api ? null : $viewName,
                                                 "use_partial_views" => $controllerAnnotation->api || $actionAnnotation->api ? false : $actionAnnotation->usePartialViews,
                                                 "parameters" => $parameters
                                             ];
-                                            /// TODO : default method : index
                                         }
                                     }
                                 }
                             }
 
+                            $routes[$controllerName]["default_action"] = array_key_exists($controllerAnnotation->defaultAction, $routes[$controllerName]['actions']) ? $controllerAnnotation->defaultAction : null;
                         }
                     }
                 } else if($reflectionClass->isSubclassOf(Filter::class)) {
                     $filterAnnotation = $reflectionClass->getAnnotation("Filter");
                     if($filterAnnotation) {
                         if($filterAnnotation->mapped) {
-                            if($filterAnnotation->name) {
-                                $keyName = $filterAnnotation->name;
+                            if($filterAnnotation->verifyName()) {
+                                $controllerName = $filterAnnotation->name;
                             } else {
-                                $keyName = str_replace("Filter", "", str_replace(".php", "", basename($phpFile)));
+                                $controllerName = str_replace("Filter", "", str_replace(".php", "", basename($phpFile)));
                             }
-                            $mapping['#shared']['filters'][$keyName] = [
+                           $shared['filters'][$controllerName] = [
                                 "namespace" => $reflectionClass->name,
                                 "path" => trim($phpFile),
                             ];
@@ -149,13 +173,18 @@ class Router {
                     }
                 }
             } elseif (stripos($phpFile,"\#shared\\view\\") > -1) {
-                $mapping['#shared']['view'][str_replace(".php", "", basename($phpFile))] = trim($phpFile);
+                $shared['view'][str_replace(".php", "", basename($phpFile))] = trim($phpFile);
             }
 
         }
 
-        $file = fopen("./app/core/config/routes_mapping.json", "w") or die("cannot write in file");
-        $json_string = json_encode($mapping, JSON_PRETTY_PRINT);
+        $file = fopen("./app/core/config/routes_map.json", "w") or die("cannot write in routes_map.json file");
+        $json_string = json_encode($routes, JSON_PRETTY_PRINT);
+        fwrite($file, $json_string);
+        fclose($file);
+
+        $file = fopen("./app/core/config/shared.json", "w") or die("cannot write in shared.json file");
+        $json_string = json_encode($shared, JSON_PRETTY_PRINT);
         fwrite($file, $json_string);
         fclose($file);
     }

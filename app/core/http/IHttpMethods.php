@@ -20,4 +20,6 @@ interface IHttpMethods
     const POST = "POST";
     const PUT = "PUT";
     const TRACE = "TRACE";
+
+    const ALL = [self::CONNECT, self::DELETE, self::GET, self::HEAD, self::OPTIONS, self::PATCH, self::POST, self::PUT, self::TRACE];
 }

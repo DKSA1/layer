@@ -15,6 +15,12 @@ class Filter extends Annotation implements MvcAnnotation
 
     public $mapped = true;
 
+    public function verifyName() {
+        if(preg_match('/^[a-zA-Z0-9]{1,}$/',$this->name))
+                return $this->name;
+        else
+                return null;
+    }
 }
 
 /** @Target("class") */
@@ -25,9 +31,9 @@ class Controller extends Annotation implements MvcAnnotation
      */
     public $api = false;
     /**
-     * @var string
+     * @var string[]
      */
-    public $routeName = null;
+    public $routeNames = [];
     /**
      * @var bool
      */
@@ -36,15 +42,28 @@ class Controller extends Annotation implements MvcAnnotation
      * @var string[]
      */
     public $filters = [];
+    /**
+     * @var string
+     */
+    public $defaultAction = 'index';
+
+    public function verifyRouteNames() {
+        $routeNames = [];
+        foreach ($this->routeNames as $routeName) {
+            if(preg_match('/^[a-zA-Z0-9]{1,}$/',$routeName))
+                $routeNames[] = $routeName;
+        }
+        return $routeNames;
+    }
 }
 
 /** @Target("method") */
 class Action extends Annotation implements MvcAnnotation
 {
     /**
-     * @var string
+     * @var string[]
      */
-    public $routeName = null;
+    public $routeNames = [];
     /**
      * @var \layer\core\http\IHttpMethods[]
      */
@@ -75,6 +94,21 @@ class Action extends Annotation implements MvcAnnotation
      */
     public function hasRequestMethod($method) {
        return in_array(strtolower($method),$this->methods);
+    }
+
+    public function verifyRouteNames() {
+        $routeNames = [];
+        foreach ($this->routeNames as $routeName) {
+            if(preg_match('/^[a-zA-Z0-9]{1,}$/',$routeName))
+               $routeNames[] = $routeName;
+        }
+        return $routeNames;
+    }
+
+    public function verifyMethods() {
+        return array_uintersect($this->methods,\layer\core\http\IHttpMethods::ALL, function ($v1, $v2) {
+            return strcasecmp($v1, $v2);
+        });
     }
     
 }
