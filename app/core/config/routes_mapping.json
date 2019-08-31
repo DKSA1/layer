@@ -1,0 +1,105 @@
+{
+    "#shared": {
+        "filters": {
+            "auth": {
+                "namespace": "layer\\service\\shared\\filters\\AuthFilter",
+                "path": "C:\\wamp64\\www\\Layer\\app\\service\\#shared\\filters\\AuthFilter.php"
+            }
+        },
+        "view": {
+            "breadcrumbs": "C:\\wamp64\\www\\Layer\\app\\service\\#shared\\view\\breadcrumbs.php",
+            "footer": "C:\\wamp64\\www\\Layer\\app\\service\\#shared\\view\\footer.php",
+            "header": "C:\\wamp64\\www\\Layer\\app\\service\\#shared\\view\\header.php",
+            "navbar": "C:\\wamp64\\www\\Layer\\app\\service\\#shared\\view\\navbar.php"
+        }
+    },
+    "routes": {
+        "Auth": {
+            "namespace": "layer\\service\\AuthController",
+            "path": "C:\\wamp64\\www\\Layer\\app\\service\\auth\\AuthController.php",
+            "filters_name": [],
+            "actions": []
+        },
+        "Errors": {
+            "namespace": "layer\\service\\ErrorsController",
+            "path": "C:\\wamp64\\www\\Layer\\app\\service\\errors\\ErrorsController.php",
+            "filters_name": [],
+            "actions": []
+        },
+        "Homepage": {
+            "namespace": "layer\\service\\HomepageController",
+            "path": "C:\\wamp64\\www\\Layer\\app\\service\\homepage\\HomepageController.php",
+            "filters_name": [],
+            "actions": {
+                "index": {
+                    "is_api_action": false,
+                    "method_name": "index",
+                    "url_pattern": "\/Homepage\/index",
+                    "allowed_methods": [
+                        "get"
+                    ],
+                    "filters_name": [],
+                    "view_name": "index",
+                    "use_partial_views": true,
+                    "parameters": []
+                },
+                "about_us": {
+                    "is_api_action": false,
+                    "method_name": "about_us",
+                    "url_pattern": "\/Homepage\/about_us",
+                    "allowed_methods": [
+                        "get"
+                    ],
+                    "filters_name": [],
+                    "view_name": "about_us",
+                    "use_partial_views": true,
+                    "parameters": []
+                },
+                "contact": {
+                    "is_api_action": false,
+                    "method_name": "contact",
+                    "url_pattern": "\/Homepage\/contact",
+                    "allowed_methods": [
+                        "post"
+                    ],
+                    "filters_name": [],
+                    "view_name": "contact",
+                    "use_partial_views": true,
+                    "parameters": []
+                },
+                "presentation": {
+                    "is_api_action": false,
+                    "method_name": "presentation",
+                    "url_pattern": "\/Homepage\/presentation",
+                    "allowed_methods": [
+                        "get"
+                    ],
+                    "filters_name": [],
+                    "view_name": "presentation",
+                    "use_partial_views": true,
+                    "parameters": []
+                },
+                "webservice": {
+                    "is_api_action": true,
+                    "method_name": "webservice",
+                    "url_pattern": "\/api\/Homepage\/webservice\/{id}",
+                    "allowed_methods": [
+                        "get"
+                    ],
+                    "filters_name": [],
+                    "view_name": null,
+                    "use_partial_views": false,
+                    "parameters": [
+                        {
+                            "name": "id",
+                            "required": false,
+                            "default": 5,
+                            "allows_null": false,
+                            "type": "int"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,74 @@
+{
+  "persistences" : {
+      "unitname" : {
+        "type" : "file",
+        "connectionString"  : "/resources"
+      },
+      "unitname2" : {
+        "type" : "database",
+        "connectionString" : ""
+      }
+  },
+  "defaults" : {
+      "root" : {
+          "controller" : "Homepage",
+          "action" : "index"
+      },
+      "error" : {
+          "controller" : "errors",
+          "action": "index"
+      },
+      "partial" : {
+          "controller" : "partials",
+          "action" : {
+              "before" : ["header","navbar","breadcrumbs"],
+              "after" : ["footer"]
+          },
+          "exceptions" : []
+      }
+  },
+  "modules" : {
+      "logger" : {
+          "enable" : false,
+          "persistence" : "file"
+      },
+      "auth" : {
+          "enable" : false,
+          "persistence" : "file",
+          "controller": "",
+          "action": ""
+      },
+      "locale" : {
+          "enable" : false,
+          "persistence" : "file",
+          "default" : "fr_FR",
+          "supported" : ["fr_FR","en_US"]
+      },
+      "webapi" : {
+          "enable" : false
+      }
+  },
+  "routes" : {
+      "remove" : ["errors"],
+      "add" : {
+          "index"  : {
+              "controller" : "Homepage",
+              "action"     : "index"
+          }
+      }
+  },
+  "globals" : {
+        "app_name" : "My framework",
+        "app_version" : "0.0.2",
+        "app_author"  : "Loris Rossi",
+        "app_description" : "MVC PHP Framework",
+        "app_keywords"  :  ["test","test2","test3"],
+
+
+        "contact" : "loris.rossi@outlook.com",
+        "app" : "test45"
+  },
+  "core" : {
+      "route" : "[controller:homepage]/[action:index]"
+  }
+}
