@@ -27,6 +27,11 @@ abstract class Configuration
         }
     }
 
+    //TODO : validation config file
+    static function checkConfigFile() {
+
+    }
+
     //Retrieve data from config
     static function get($keys = "")
     {

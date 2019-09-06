@@ -54,6 +54,8 @@ class Router {
 
     private $isApiUrlCall;
 
+    private $isRequestForward = false;
+
     public static function getInstance() : Router
     {
         if(self::$instance == null) self::$instance = new Router();
@@ -89,7 +91,7 @@ class Router {
         $this->request = new Request();
         $this->response = new Response();
 
-        if(!($this->loadRoutesMap() && $this->loadShared())) {
+        if(true || !($this->loadRoutesMap() && $this->loadShared())) {
             $this->buildRouteMap();
         }
     }
@@ -124,6 +126,9 @@ class Router {
                 $reflectionClass = new \ReflectionAnnotatedClass($instance);
                 if($reflectionClass->isSubclassOf(Controller::class)) {
                     $default = false;
+                    /**
+                     * @var \Controller|\DefaultController $actionAnnotation
+                     */
                     $controllerAnnotation = $reflectionClass->getAnnotation("Controller");
                     if(!$controllerAnnotation) {
                         $controllerAnnotation = $reflectionClass->getAnnotation("DefaultController");
@@ -147,6 +152,7 @@ class Router {
                             } else {
                                 $controllerName = strtolower(str_replace("Controller", "", str_replace(".php", "", basename($phpFile))));
                             }
+                            $layoutName = (Configuration::get('layouts/'.$controllerAnnotation->layoutName) ? $controllerAnnotation->layoutName : null);
                             $this->routes[$controllerName] = [
                                 "namespace" => $reflectionClass->name,
                                 "path" => trim($phpFile),
@@ -159,6 +165,9 @@ class Router {
                              */
                             foreach ($reflectionClass->getMethods() as $reflectionMethod) {
                                 if($reflectionMethod->isPublic()) {
+                                    /**
+                                     * @var \Action $actionAnnotation
+                                     */
                                     $actionAnnotation = $reflectionMethod->getAnnotation("Action");
                                     if($actionAnnotation) {
                                         if($actionAnnotation->mapped) {
@@ -195,6 +204,7 @@ class Router {
                                             $urlPattern = ($controllerAnnotation->api || $actionAnnotation->api ? '/api' : '') .'/'.$controllerName.'/'.$actionName.$urlPattern;
                                             $viewName = $actionAnnotation->viewName == null ? $reflectionMethod->name : $actionAnnotation->viewName;
                                             $viewName = file_exists(dirname($phpFile).'/view/'.$viewName.'.php') ? $viewName : null;
+                                            $layoutName = !$actionAnnotation->layoutName ? $layoutName : (Configuration::get('layouts/'.$actionAnnotation->layoutName) ? $actionAnnotation->layoutName : null);
                                             $this->routes[$controllerName]['actions'][$actionName] = [
                                                 "is_api_action" => $controllerAnnotation->api || $actionAnnotation->api,
                                                 "method_name" => $reflectionMethod->name,
@@ -202,7 +212,7 @@ class Router {
                                                 "request_methods" => $actionAnnotation->verifyMethods(),
                                                 "filters_name" => $actionAnnotation->filters,
                                                 "view_name" => $controllerAnnotation->api || $actionAnnotation->api ? null : $viewName,
-                                                "use_partial_views" => $controllerAnnotation->api || $actionAnnotation->api ? false : $actionAnnotation->usePartialViews,
+                                                "layout_name" => $controllerAnnotation->api || $actionAnnotation->api || !$viewName ? null : $layoutName,
                                                 "parameters" => $parameters
                                             ];
                                         }
@@ -210,20 +220,25 @@ class Router {
                                 }
                             }
 
-                            $this->routes[$controllerName]["default_action"] = array_key_exists($controllerAnnotation->defaultAction, $this->routes[$controllerName]['actions']) ? $controllerAnnotation->defaultAction : null;
+                            if(array_key_exists($controllerAnnotation->defaultAction, $this->routes[$controllerName]['actions'])) {
+                                $this->routes[$controllerName]["actions"][""] = ['forward' => $controllerAnnotation->defaultAction];
+                            }
                             if($default) {
                                 $this->routes[''] = [
                                     "forward" => $controllerName
                                 ];
                             }
                         }
-                    } else if($reflectionClass->isSubclassOf(ErrorController::class) && $reflectionClass->getAnnotation('ErrorController')) {
+                    } else if($reflectionClass->isSubclassOf(ErrorController::class) && $reflectionClass->hasAnnotation('ErrorController')) {
 
                         $this->shared['error'] = [
                             "namespace" => $reflectionClass->name,
                             "path" => trim($phpFile),
                             "actions" => []
                         ];
+
+                        $controllerAnnotation = $reflectionClass->getAnnotation('ErrorController');
+                        $layoutName = (Configuration::get('layouts/'.$controllerAnnotation->layoutName) ? $controllerAnnotation->layoutName : null);
 
                         /**
                          * @var \ReflectionAnnotatedMethod $reflectionMethod
@@ -250,14 +265,15 @@ class Router {
                                             $actionName = $reflectionMethod->name;
                                         }
                                         if ($reflectionMethod->name == 'index') {
-                                            $this->shared['error']['default_action'] = $actionName;
+                                            $this->shared['error']["actions"][""] = $actionName;
                                         }
                                         $viewName = $actionAnnotation->viewName == null ? $reflectionMethod->name : $actionAnnotation->viewName;
                                         $viewName = file_exists(dirname($phpFile).'/view/'.$viewName.'.php') ? $viewName : null;
+                                        $layoutName = !$actionAnnotation->layoutName ? $layoutName : (Configuration::get('layouts/'.$actionAnnotation->layoutName) ? $actionAnnotation->layoutName : null);
                                         $this->shared['error']['actions'][$actionName] = [
                                             "method_name" => $reflectionMethod->name,
                                             "view_name" => $viewName,
-                                            "use_partial_views" => $viewName ? $actionAnnotation->usePartialViews : false
+                                            "layout_name" => $viewName ? $layoutName : null
                                         ];
                                     }
                                 }
@@ -298,11 +314,18 @@ class Router {
         fclose($file);
     }
 
-    public function handleRequest() {
+    public function handleRequest($baseUrl = null) {
         try {
+
+            if($baseUrl) {
+                $this->isRequestForward = true;
+            } else {
+               $baseUrl = $this->request->getBaseUrl();
+            }
+
             $this->isApiUrlCall = false;
 
-            $this->urlParts = explode('/',trim(strtolower($this->request->getBaseUrl()), '/'));
+            $this->urlParts = explode('/',trim(strtolower($baseUrl), '/'));
 
             if (count($this->urlParts) > 0) {
                 if(stripos($this->urlParts[0], 'api') > -1) {
@@ -330,12 +353,16 @@ class Router {
 
     private function handleError( Exception $e) {
         $method = 'index';
+        $controllerMetaData = null;
+        $actionName = null;
         if(array_key_exists("error", $this->shared) && file_exists($this->shared['error']['path'])) {
+            $controllerMetaData = $this->shared['error'];
             require_once $this->shared['error']['path'];
             $namespace = $this->shared['error']['namespace'];
             $reflectionErrorController = new \ReflectionClass($namespace);
-            foreach ($this->shared['error']['actions'] as $actionKey => $actionData) {
+            foreach ($controllerMetaData['actions'] as $actionKey => $actionData) {
                 if(preg_match('/'.$actionKey.'/', $e->getCode())) {
+                    $actionName = $actionKey;
                     $method = $actionData['method_name'];
                 }
             }
@@ -362,18 +389,18 @@ class Router {
 
         $controller->$method();
 
-        if($this->isApiUrlCall) {
-            $content = json_encode($this->response->getData());
-        } else {
+        if($controllerMetaData && $controllerMetaData['actions'][$actionName]['view_name']) {
             // todo : only key exists
-            $viewModel = new ViewModel(dirname($this->shared['error']['path']), "index");
-            if (true) {
-                $arrBefore = Configuration::get("defaults/partial/action/before");
+            $viewModel = new ViewModel(dirname($controllerMetaData['path']), $controllerMetaData['actions'][$actionName]['view_name']);
+            if ($layoutName = $controllerMetaData['actions'][$actionName]['layout_name']) {
+                $arrBefore = Configuration::get("layouts/$layoutName/before");
                 $viewModel->addIntroViews($arrBefore);
-                $arrAfter = Configuration::get("defaults/partial/action/after");
+                $arrAfter = Configuration::get("layouts/$layoutName/after");
                 $viewModel->addFinalViews($arrAfter);
             }
             $content = $viewModel->generer($this->response->getData());
+        } else {
+            $content = json_encode($this->response->getData());
         }
 
         $this->sendResponse($content);
@@ -395,8 +422,8 @@ class Router {
                     // action not found
                     throw new Exception("Action not found",HttpHeaders::NotFound);
                 }
-            } else if($routeMetaData['default_action']) {
-                $this->urlParts[0] = $routeMetaData['default_action'];
+            } else if(isset($routeMetaData['actions'][''])) {
+                $this->urlParts[0] = '';
                 $this->initAction($routeMetaData);
             } else {
                 // no default action
@@ -432,17 +459,22 @@ class Router {
 
                 $controller->$method();
 
-                if($this->isApiUrlCall && $actionMetaData['is_api_action']) {
-                    $content = json_encode($this->response->getData());
-                } else if(!$this->isApiUrlCall && $actionMetaData['view_name']) {
+                if($this->isRequestForward) {
+                    $this->isRequestForward = false;
+                    return;
+                }
+
+                if(!$this->isApiUrlCall && $actionMetaData['view_name']) {
                     $viewModel = new ViewModel(dirname($routeMetaData['path']), $actionMetaData['view_name']);
-                    if ($actionMetaData['use_partial_views']) {
-                        $arrBefore = Configuration::get("defaults/partial/action/before");
+                    if ($layoutName = $actionMetaData['layout_name']) {
+                        $arrBefore = Configuration::get("layouts/$layoutName/before");
                         $viewModel->addIntroViews($arrBefore);
-                        $arrAfter = Configuration::get("defaults/partial/action/after");
+                        $arrAfter = Configuration::get("layouts/$layoutName/after");
                         $viewModel->addFinalViews($arrAfter);
                     }
                     $content = $viewModel->generer($this->response->getData());
+                } else {
+                    $content = json_encode($this->response->getData());
                 }
 
                 $this->sendResponse($content);

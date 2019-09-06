@@ -9,49 +9,11 @@
         "connectionString" : ""
       }
   },
-  "defaults" : {
-      "root" : {
-          "controller" : "Homepage",
-          "action" : "index"
-      },
-      "partial" : {
-          "controller" : "partials",
-          "action" : {
-              "before" : ["header","navbar","breadcrumbs"],
-              "after" : ["footer"]
-          },
-          "exceptions" : []
-      }
-  },
-  "modules" : {
-      "logger" : {
-          "enable" : false,
-          "persistence" : "file"
-      },
-      "auth" : {
-          "enable" : false,
-          "persistence" : "file",
-          "controller": "",
-          "action": ""
-      },
-      "locale" : {
-          "enable" : false,
-          "persistence" : "file",
-          "default" : "fr_FR",
-          "supported" : ["fr_FR","en_US"]
-      },
-      "webapi" : {
-          "enable" : false
-      }
-  },
-  "routes" : {
-      "remove" : ["errors"],
-      "add" : {
-          "index"  : {
-              "controller" : "Homepage",
-              "action"     : "index"
-          }
-      }
+  "layouts" : {
+    "basic": {
+      "before": ["header","navbar","breadcrumbs"],
+      "after": ["footer"]
+    }
   },
   "globals" : {
         "app_name" : "My framework",

@@ -75,23 +75,23 @@ abstract class Controller {
     }
 
     /**
-     * @param string $controller
-     * @param string $action
+     * @param string $internalUrl
      */
     // TODO : move permanently 301
-    protected final function forward($controller, $action){
+    protected final function forward($internalUrl){
+        Router::getInstance()->handleRequest($internalUrl);
         //check if controller was already instanciated
-        $c = Router::getInstance()->getInstancedController($controller);
+        /*$c = Router::getInstance()->getInstancedController($controller);
         if(!$controller){
             $path = APP_SERVICE . basename($controller) . ".php";
             if(file_exists($path)){
                 $controller = new \ReflectionClass($controller);
                 $c = $controller->newInstance();
             }else throw new Exception("Redirection interne échouée",HttpHeaders::InternalServerError);
-        }
+        }*/
     }
 
-    protected final function redirect($url,$timeout = 0) {
+    protected final function redirect($url, $timeout = 0) {
         //header('Location: http://www.google.com/');
         header( "refresh:".$timeout.";url=".$url);
     }

@@ -2,6 +2,7 @@
 
 require_once(PATH . 'app/lib/addendum/annotations.php');
 
+// TODO : divide class in different files
 
 interface MvcAnnotation
 {
@@ -46,6 +47,10 @@ class Controller extends Annotation implements MvcAnnotation
      * @var string
      */
     public $defaultAction = 'index';
+    /**
+     * @var string
+     */
+    public $layoutName = null;
 
     public function verifyRouteNames() {
         $routeNames = [];
@@ -85,9 +90,9 @@ class Action extends Annotation implements MvcAnnotation
      */
     public $viewName = null;
     /**
-     * @var bool
+     * @var string
      */
-    public $usePartialViews = true;
+    public $layoutName = null;
     /**
      * @param $method
      * @return bool
@@ -114,7 +119,10 @@ class Action extends Annotation implements MvcAnnotation
 }
 
 class ErrorController extends Annotation implements MvcAnnotation {
-
+    /**
+     * @var string
+     */
+    public $layoutName = null;
 }
 
 class ErrorAction extends Annotation implements MvcAnnotation {
@@ -122,12 +130,18 @@ class ErrorAction extends Annotation implements MvcAnnotation {
      * @var string[]
      */
     public $errorCodes = [];
-
+    /**
+     * @var bool
+     */
     public $mapped = true;
-
+    /**
+     * @var string
+     */
     public $viewName = null;
-
-    public $usePartialViews = true;
+    /**
+     * @var string
+     */
+    public $layoutName = null;
 }
 
 class DefaultController extends Controller implements MvcAnnotation {
