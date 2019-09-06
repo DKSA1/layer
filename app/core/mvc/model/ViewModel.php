@@ -17,10 +17,9 @@ class ViewModel {
     private $final = [];
 
     // Constructeur avec contenu principal
-    public function __construct($viewDir,$viewFile = "index")
+    public function __construct($viewDir,$viewFile)
     {
-        $servicePath = PATH."app/service/";
-        $this->main = $servicePath.$viewDir."/view/".$viewFile.".php" ;
+        $this->main = $viewDir."/view/".$viewFile.".php" ;
     }
 
     // affichage du contenu

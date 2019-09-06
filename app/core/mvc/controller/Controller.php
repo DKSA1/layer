@@ -24,49 +24,20 @@ abstract class Controller {
      */
     protected $request;
 
+
     /**
      * @var Response $response
      */
     protected $response;
-
-    // Action à réaliser
-    protected $action = "index";
-
-    // Parametres Requête entrante
-    /**
-     * @var array
-     */
-    protected $params;
-
-    // Parametres GET|POST
-    protected $data;
-
-    //methode utilisée GET ou POST
-    protected $method;
-
-    //api call
-    /**
-     * @var bool
-     */
-    protected $isApiCall = false;
 
     /**
      * Controller constructor.
      */
     public function __construct()
     {
-        $this->request = new Request();
-        $this->response = new Response();
+
     }
 
-    // Action à réaliser.
-    public final function executeAction(){
-
-        $requestedAction = $this->action;
-        if($this->actionExists($requestedAction)){
-            $this->$requestedAction();
-        } else throw new Exception("Aucune action ne correspond à votre requète !",HttpHeaders::NotFound);
-    }
     /*
      Méthode abstraite correspondant à l'action par défaut
      Oblige les classes dérivées à implémenter cette action par défaut
@@ -100,11 +71,7 @@ abstract class Controller {
         //title page
         if(!defined("APP_VIEW_TITLE")) define("APP_VIEW_TITLE",$classeControleur);
         // lancement de la vue
-        $this->response->setContent($vue->generer($donneesVue));
-        foreach ($this->response->getHeaders() as $h => $v) {
-            header($h.":".$v, true, $this->response->getResponseCode());
-        }
-        echo $this->response->getContent();
+        return $vue->generer($donneesVue);
     }
 
     /**
@@ -112,22 +79,16 @@ abstract class Controller {
      * @param string $action
      */
     // TODO : move permanently 301
-    protected final function forward($controller,$action){
+    protected final function forward($controller, $action){
         //check if controller was already instanciated
         $c = Router::getInstance()->getInstancedController($controller);
         if(!$controller){
-            $path = PATH."app\service\\" . basename($controller) . ".php";
+            $path = APP_SERVICE . basename($controller) . ".php";
             if(file_exists($path)){
                 $controller = new \ReflectionClass($controller);
                 $c = $controller->newInstance();
             }else throw new Exception("Redirection interne échouée",HttpHeaders::InternalServerError);
         }
-        $c->setAction($action);
-        $c->setMethod($this->method);
-        $c->setParams($this->params);
-        $c->setData($this->data);
-        $c->setIsApiCall($this->isApiCall);
-        $c->executeAction();
     }
 
     protected final function redirect($url,$timeout = 0) {
@@ -135,53 +96,4 @@ abstract class Controller {
         header( "refresh:".$timeout.";url=".$url);
     }
 
-    /**
-     * @param string $action
-     * @return bool
-     */
-    public final function actionExists($action){
-
-        $c = new \ReflectionClass($this);
-
-        if($c->hasMethod($action)) return true;
-        else return false;
-    }
-
-    // methode demandée
-    public function setMethod($method){
-        $this->method = $method;
-    }
-
-    // Mémorisation des param requête entrante
-    public function setParams($requete){
-        $this->params = $requete;
-    }
-
-    // action a effectuer
-    public function setAction($action)
-    {
-        $this->action = $action;
-    }
-
-    // parametres GET|POST
-    public function setData($data)
-    {
-        $this->data = $data;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isApiCall(): bool
-    {
-        return $this->isApiCall;
-    }
-
-    /**
-     * @param bool $isApiCall
-     */
-    public function setIsApiCall(bool $isApiCall)
-    {
-        $this->isApiCall = $isApiCall;
-    }
 }

@@ -51,7 +51,7 @@ class Controller extends Annotation implements MvcAnnotation
         $routeNames = [];
         foreach ($this->routeNames as $routeName) {
             if(preg_match('/^[a-zA-Z0-9]{1,}$/',$routeName))
-                $routeNames[] = $routeName;
+                $routeNames[] = strtolower($routeName);
         }
         return $routeNames;
     }
@@ -100,7 +100,7 @@ class Action extends Annotation implements MvcAnnotation
         $routeNames = [];
         foreach ($this->routeNames as $routeName) {
             if(preg_match('/^[a-zA-Z0-9]{1,}$/',$routeName))
-               $routeNames[] = $routeName;
+               $routeNames[] = strtolower($routeName);
         }
         return $routeNames;
     }
@@ -111,5 +111,26 @@ class Action extends Annotation implements MvcAnnotation
         });
     }
     
+}
+
+class ErrorController extends Annotation implements MvcAnnotation {
+
+}
+
+class ErrorAction extends Annotation implements MvcAnnotation {
+    /**
+     * @var string[]
+     */
+    public $errorCodes = [];
+
+    public $mapped = true;
+
+    public $viewName = null;
+
+    public $usePartialViews = true;
+}
+
+class DefaultController extends Controller implements MvcAnnotation {
+
 }
 

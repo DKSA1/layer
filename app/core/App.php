@@ -45,7 +45,7 @@ class App
         // TODO : register managers
 
         //process
-        $this->router->routerRequete();
+        $this->router->handleRequest();
 
         //exit modules
         $moduleManager = null;

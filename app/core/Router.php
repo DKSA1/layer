@@ -10,16 +10,28 @@ namespace layer\core;
 use layer\core\config\Configuration;
 use layer\core\http\HttpHeaders;
 use Exception;
+use layer\core\http\IHttpCodes;
+use layer\core\http\Request;
+use layer\core\http\Response;
 use layer\core\mvc\controller\Controller;
+use layer\core\mvc\controller\ErrorController;
 use layer\core\mvc\filter\Filter;
+use layer\core\mvc\model\ViewModel;
 use layer\service\ErrorsController;
-use layer\service;
 use layer\core\mvc\MvcAnnotation;
 
 class Router {
 
 
+    /**
+     * @var Request $request
+     */
     private $request;
+
+    /**
+     * @var Response $response
+     */
+    private $response;
 
     /**
      * @var Router
@@ -31,23 +43,66 @@ class Router {
      */
     private $controllers;
 
+    private $routes;
+
+    private $shared;
+
+    /**
+     * @var string[]
+     */
+    private $urlParts;
+
+    private $isApiUrlCall;
+
     public static function getInstance() : Router
     {
         if(self::$instance == null) self::$instance = new Router();
         return self::$instance;
     }
 
+    private function loadRoutesMap()
+    {
+        if(file_exists(PATH."app\core\config\\routes_map.json"))
+        {
+            if($data = file_get_contents(PATH."app\core\config\\routes_map.json"))
+            {
+                $this->routes = json_decode($data,true);
+                return true;
+            }
+        } else
+            return false;
+    }
+
+    private function loadShared() {
+        if(file_exists(PATH."app\core\config\\shared.json"))
+        {
+            if($data = file_get_contents(PATH."app\core\config\\shared.json"))
+            {
+                $this->shared = json_decode($data,true);
+                return true;
+            }
+        } else
+            return false;
+    }
+
     private function __construct(){
-        $this->buildRouteMap();
+        $this->request = new Request();
+        $this->response = new Response();
+
+        if(!($this->loadRoutesMap() && $this->loadShared())) {
+            $this->buildRouteMap();
+        }
     }
 
     private function buildRouteMap()
     {
-        $shared = [
+        $this->shared = [
             "filters" => [],
-            "view" => []
+            "view" => [],
+            "error" => null
         ];
-        $routes = [];
+        $this->routes = [];
+
         // controleurs
         $path = dirname(__DIR__)."\service";
 
@@ -68,26 +123,31 @@ class Router {
                 $instance = $reflectionClass->newInstance();
                 $reflectionClass = new \ReflectionAnnotatedClass($instance);
                 if($reflectionClass->isSubclassOf(Controller::class)) {
+                    $default = false;
                     $controllerAnnotation = $reflectionClass->getAnnotation("Controller");
+                    if(!$controllerAnnotation) {
+                        $controllerAnnotation = $reflectionClass->getAnnotation("DefaultController");
+                        if($controllerAnnotation)
+                            $default = true;
+                    }
                     //has annotation
                     if($controllerAnnotation){
                         if($controllerAnnotation->mapped) {
                             $controllerRouteNames = $controllerAnnotation->verifyRouteNames();
                             if(count($controllerRouteNames) > 0) {
                                 $controllerName = $controllerRouteNames[0];
-                                $routes[$controllerName] = null;
+                                $this->routes[$controllerName] = null;
                                 foreach ($controllerRouteNames as $routeName) {
-                                    if(!array_key_exists($routeName, $routes)) {
-                                        $routes[$routeName] = [
+                                    if(!array_key_exists($routeName, $this->routes)) {
+                                        $this->routes[$routeName] = [
                                            "forward" => $controllerName
                                         ];
                                     }
                                 }
                             } else {
-                                $controllerName = str_replace("Controller", "", str_replace(".php", "", basename($phpFile)));
+                                $controllerName = strtolower(str_replace("Controller", "", str_replace(".php", "", basename($phpFile))));
                             }
-                            $controllerName = strtolower($controllerName);
-                            $routes[$controllerName] = [
+                            $this->routes[$controllerName] = [
                                 "namespace" => $reflectionClass->name,
                                 "path" => trim($phpFile),
                                 "filters_name" => $controllerAnnotation->filters,
@@ -121,23 +181,21 @@ class Router {
                                             $actionRouteNames = $actionAnnotation->verifyRouteNames();
                                             if(count($actionRouteNames) > 0) {
                                                 $actionName = $actionRouteNames[0];
-                                                $actionName = strtolower($actionName);
-                                                $routes[$controllerName]['actions'][$actionName] = null;
+                                                $this->routes[$controllerName]['actions'][$actionName] = null;
                                                 foreach ($actionRouteNames as $routeName) {
-                                                    if(!array_key_exists($routeName, $routes[$controllerName]['actions'])) {
-                                                        $routes[$controllerName]['actions'][$routeName] = [
+                                                    if(!array_key_exists($routeName, $this->routes[$controllerName]['actions'])) {
+                                                        $this->routes[$controllerName]['actions'][$routeName] = [
                                                             "forward" => $actionName
                                                         ];
                                                     }
                                                 }
                                             } else {
-                                                $actionName = $reflectionMethod->name;
-                                                $actionName = strtolower($actionName);
+                                                $actionName = strtolower($reflectionMethod->name);
                                             }
                                             $urlPattern = ($controllerAnnotation->api || $actionAnnotation->api ? '/api' : '') .'/'.$controllerName.'/'.$actionName.$urlPattern;
                                             $viewName = $actionAnnotation->viewName == null ? $reflectionMethod->name : $actionAnnotation->viewName;
                                             $viewName = file_exists(dirname($phpFile).'/view/'.$viewName.'.php') ? $viewName : null;
-                                            $routes[$controllerName]['actions'][$actionName] = [
+                                            $this->routes[$controllerName]['actions'][$actionName] = [
                                                 "is_api_action" => $controllerAnnotation->api || $actionAnnotation->api,
                                                 "method_name" => $reflectionMethod->name,
                                                 "url_pattern" => $urlPattern,
@@ -152,7 +210,58 @@ class Router {
                                 }
                             }
 
-                            $routes[$controllerName]["default_action"] = array_key_exists($controllerAnnotation->defaultAction, $routes[$controllerName]['actions']) ? $controllerAnnotation->defaultAction : null;
+                            $this->routes[$controllerName]["default_action"] = array_key_exists($controllerAnnotation->defaultAction, $this->routes[$controllerName]['actions']) ? $controllerAnnotation->defaultAction : null;
+                            if($default) {
+                                $this->routes[''] = [
+                                    "forward" => $controllerName
+                                ];
+                            }
+                        }
+                    } else if($reflectionClass->isSubclassOf(ErrorController::class) && $reflectionClass->getAnnotation('ErrorController')) {
+
+                        $this->shared['error'] = [
+                            "namespace" => $reflectionClass->name,
+                            "path" => trim($phpFile),
+                            "actions" => []
+                        ];
+
+                        /**
+                         * @var \ReflectionAnnotatedMethod $reflectionMethod
+                         */
+                        foreach ($reflectionClass->getMethods() as $reflectionMethod) {
+                            if($reflectionMethod->isPublic()) {
+                                /**
+                                 * @var \ErrorAction $actionAnnotation
+                                 */
+                                $actionAnnotation = $reflectionMethod->getAnnotation("ErrorAction");
+                                if ($actionAnnotation) {
+                                    if ($actionAnnotation->mapped) {
+                                        if(count($actionAnnotation->errorCodes) > 0) {
+                                            $actionName = $actionAnnotation->errorCodes[0];
+                                            $this->shared['error']['actions'][$actionName] = null;
+                                            foreach ($actionAnnotation->errorCodes as $routeName) {
+                                                if(!array_key_exists($routeName, $this->shared['error']['actions'])) {
+                                                    $this->shared['error']['actions'][$routeName] = [
+                                                        "forward" => $actionName
+                                                    ];
+                                                }
+                                            }
+                                        } else {
+                                            $actionName = $reflectionMethod->name;
+                                        }
+                                        if ($reflectionMethod->name == 'index') {
+                                            $this->shared['error']['default_action'] = $actionName;
+                                        }
+                                        $viewName = $actionAnnotation->viewName == null ? $reflectionMethod->name : $actionAnnotation->viewName;
+                                        $viewName = file_exists(dirname($phpFile).'/view/'.$viewName.'.php') ? $viewName : null;
+                                        $this->shared['error']['actions'][$actionName] = [
+                                            "method_name" => $reflectionMethod->name,
+                                            "view_name" => $viewName,
+                                            "use_partial_views" => $viewName ? $actionAnnotation->usePartialViews : false
+                                        ];
+                                    }
+                                }
+                            }
                         }
                     }
                 } else if($reflectionClass->isSubclassOf(Filter::class)) {
@@ -164,29 +273,196 @@ class Router {
                             } else {
                                 $controllerName = str_replace("Filter", "", str_replace(".php", "", basename($phpFile)));
                             }
-                           $shared['filters'][$controllerName] = [
+                            $this->shared['filters'][$controllerName] = [
                                 "namespace" => $reflectionClass->name,
-                                "path" => trim($phpFile),
+                                "path" => trim($phpFile)
                             ];
                         }
 
                     }
                 }
             } elseif (stripos($phpFile,"\#shared\\view\\") > -1) {
-                $shared['view'][str_replace(".php", "", basename($phpFile))] = trim($phpFile);
+                $this->shared['view'][str_replace(".php", "", basename($phpFile))] = trim($phpFile);
             }
 
         }
 
         $file = fopen("./app/core/config/routes_map.json", "w") or die("cannot write in routes_map.json file");
-        $json_string = json_encode($routes, JSON_PRETTY_PRINT);
+        $json_string = json_encode($this->routes, JSON_PRETTY_PRINT);
         fwrite($file, $json_string);
         fclose($file);
 
         $file = fopen("./app/core/config/shared.json", "w") or die("cannot write in shared.json file");
-        $json_string = json_encode($shared, JSON_PRETTY_PRINT);
+        $json_string = json_encode($this->shared, JSON_PRETTY_PRINT);
         fwrite($file, $json_string);
         fclose($file);
+    }
+
+    public function handleRequest() {
+        try {
+            $this->isApiUrlCall = false;
+
+            $this->urlParts = explode('/',trim(strtolower($this->request->getBaseUrl()), '/'));
+
+            if (count($this->urlParts) > 0) {
+                if(stripos($this->urlParts[0], 'api') > -1) {
+                    $this->isApiUrlCall = true;
+                    array_shift($this->urlParts);
+                }
+                if(isset($this->urlParts[0]) && array_key_exists($this->urlParts[0], $this->routes)) {
+                    $this->initController($this->routes[$this->urlParts[0]]);
+                } else {
+                    // route not found
+                    throw new Exception("Route not found",HttpHeaders::NotFound);
+                }
+            } else if(array_key_exists("", $this->routes)) {
+                // root controller & actions
+                $routeMetaData = $this->routes[""];
+                $this->initController($routeMetaData);
+            } else {
+                throw new Exception("Default route not found",HttpHeaders::NotFound);
+            }
+        }catch(Exception $e) {
+            // TODO : change RouterException
+            $this->handleError($e);
+        }
+    }
+
+    private function handleError( Exception $e) {
+        $method = 'index';
+        if(array_key_exists("error", $this->shared) && file_exists($this->shared['error']['path'])) {
+            require_once $this->shared['error']['path'];
+            $namespace = $this->shared['error']['namespace'];
+            $reflectionErrorController = new \ReflectionClass($namespace);
+            foreach ($this->shared['error']['actions'] as $actionKey => $actionData) {
+                if(preg_match('/'.$actionKey.'/', $e->getCode())) {
+                    $method = $actionData['method_name'];
+                }
+            }
+        } else {
+            $reflectionErrorController = new \ReflectionClass(ErrorController::class);
+        }
+
+        $controller = $reflectionErrorController->newInstance();
+
+        // setting request
+        $property = $reflectionErrorController->getProperty('request');
+        $property->setAccessible(true);
+        $property->setValue($controller, $this->request);
+        // setting response
+        $property = $reflectionErrorController->getProperty('response');
+        $property->setAccessible(true);
+        $property->setValue($controller, $this->response);
+        // setting error
+        $property = $reflectionErrorController->getProperty('error');
+        $property->setAccessible(true);
+        $property->setValue($controller, $e);
+
+        $this->response->setResponseCode($e->getCode());
+
+        $controller->$method();
+
+        if($this->isApiUrlCall) {
+            $content = json_encode($this->response->getData());
+        } else {
+            // todo : only key exists
+            $viewModel = new ViewModel(dirname($this->shared['error']['path']), "index");
+            if (true) {
+                $arrBefore = Configuration::get("defaults/partial/action/before");
+                $viewModel->addIntroViews($arrBefore);
+                $arrAfter = Configuration::get("defaults/partial/action/after");
+                $viewModel->addFinalViews($arrAfter);
+            }
+            $content = $viewModel->generer($this->response->getData());
+        }
+
+        $this->sendResponse($content);
+
+    }
+
+    private function initController($routeMetaData) {
+        if (array_key_exists('forward', $routeMetaData)) {
+            $routeMetaData = $this->routes[$routeMetaData['forward']];
+        }
+        if (file_exists($routeMetaData['path'])) {
+            require_once $routeMetaData['path'];
+            array_shift($this->urlParts);
+            if(isset($this->urlParts[0])) {
+                // actions
+                if(array_key_exists($this->urlParts[0], $routeMetaData['actions'])) {
+                    $this->initAction($routeMetaData);
+                } else {
+                    // action not found
+                    throw new Exception("Action not found",HttpHeaders::NotFound);
+                }
+            } else if($routeMetaData['default_action']) {
+                $this->urlParts[0] = $routeMetaData['default_action'];
+                $this->initAction($routeMetaData);
+            } else {
+                // no default action
+                throw new Exception("Action not found",HttpHeaders::NotFound);
+            }
+        } else {
+            // file missing
+            throw new Exception("Resource not found",HttpHeaders::InternalServerError);
+        }
+    }
+
+    private function initAction($routeMetaData) {
+        $actionMetaData = $routeMetaData['actions'][$this->urlParts[0]];
+        if (array_key_exists('forward', $actionMetaData)) {
+            $actionMetaData = $routeMetaData['actions'][$actionMetaData['forward']];
+        }
+        if(in_array(strtolower($this->request->getRequestMethod()), $actionMetaData['request_methods'])) {
+            $reflectionController = new \ReflectionClass($routeMetaData['namespace']);
+            // allowed method
+            if($reflectionController->hasMethod($actionMetaData['method_name'])) {
+
+                $controller = $reflectionController->newInstance();
+                // setting request
+                $property = $reflectionController->getProperty('request');
+                $property->setAccessible(true);
+                $property->setValue($controller, $this->request);
+                // setting response
+                $property = $reflectionController->getProperty('response');
+                $property->setAccessible(true);
+                $property->setValue($controller, $this->response);
+
+                $method = $actionMetaData['method_name'];
+
+                $controller->$method();
+
+                if($this->isApiUrlCall && $actionMetaData['is_api_action']) {
+                    $content = json_encode($this->response->getData());
+                } else if(!$this->isApiUrlCall && $actionMetaData['view_name']) {
+                    $viewModel = new ViewModel(dirname($routeMetaData['path']), $actionMetaData['view_name']);
+                    if ($actionMetaData['use_partial_views']) {
+                        $arrBefore = Configuration::get("defaults/partial/action/before");
+                        $viewModel->addIntroViews($arrBefore);
+                        $arrAfter = Configuration::get("defaults/partial/action/after");
+                        $viewModel->addFinalViews($arrAfter);
+                    }
+                    $content = $viewModel->generer($this->response->getData());
+                }
+
+                $this->sendResponse($content);
+
+            }
+        } else {
+            // method not allowed
+            throw new Exception("Method not allowed",HttpHeaders::BadRequest);
+        }
+    }
+
+    private function sendResponse($content) {
+
+        HttpHeaders::ResponseHeader($this->response->getResponseCode());
+
+        foreach ($this->response->getHeaders() as $h => $v) {
+            header($h.":".$v, true, $this->response->getResponseCode());
+        }
+
+        echo $content;
     }
 
     public function routerRequete()
@@ -221,11 +497,11 @@ class Router {
 
             $controleur = $this->createController($controleurName);
 
-            $controleur->setAction($action);
-            $controleur->setParams($params);
-            $controleur->setData($this->request);
-            $controleur->setMethod($_SERVER['REQUEST_METHOD']);
-            $controleur->setIsApiCall($apiCall);
+            //$controleur->setAction($action);
+            //$controleur->setParams($params);
+            //$controleur->setData($this->request);
+            //$controleur->setMethod($_SERVER['REQUEST_METHOD']);
+            //$controleur->setIsApiCall($apiCall);
 
             /*if(!$controleur->actionExists($action)){
                 throw new Exception("Aucune action ne correspond à votre requète",HttpHeaders::NotFound);
@@ -283,7 +559,7 @@ class Router {
             define("CONTROLLER",$controleurName);
             define("ACTION",$action);
 
-            $controleur->executeAction();
+            //$controleur->executeAction();
 
             }
         catch (Exception $e) {
@@ -327,24 +603,6 @@ class Router {
 
     }
 
-    private function mappingRoutes()
-    {
-        $directory = PATH.'app/service';
-        $scannedDirectory = array_diff(scandir($directory), array('..', '.'));
-        foreach ($scannedDirectory as $dir) {
-            if(is_dir($directory."/".$dir)) {
-                $controllerClassName = ucfirst($dir)."Controller";
-                if(file_exists($directory."/".$dir."/".$controllerClassName.".php")) {
-                    require_once $directory."/".$dir."/".$controllerClassName.".php";
-                    $class = "layer\service\\".$controllerClassName;
-                    $reflectionClass = new \ReflectionAnnotatedClass($class);
-                    $controllerAnnotation = $reflectionClass->getAnnotation("Controller");
-
-                }
-            }
-        }
-    }
-
     private function customRoutes($page,$action) : array
     {
         //link request to custom controller
@@ -375,13 +633,13 @@ class Router {
         if(!defined('ACTION')) define("ACTION",$def['action']);
         $eController->code = $exception->getCode();
         $eController->output = ["title"=>"Erreur ".$exception->getCode(),"content" => $exception->getMessage(), "public" => "/git/devboard/public/" ];
-        $eController->executeAction();
+        //$eController->executeAction();
     }
 
     /**
      * @return Controller|null
      */
-    // return a previously instanciated controller
+    // return a previously instanciated controller for action forward
     public function getInstancedController($controller)
     {
         $reflection = new \ReflectionClass($controller);

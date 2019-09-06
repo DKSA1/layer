@@ -14,10 +14,6 @@
           "controller" : "Homepage",
           "action" : "index"
       },
-      "error" : {
-          "controller" : "errors",
-          "action": "index"
-      },
       "partial" : {
           "controller" : "partials",
           "action" : {

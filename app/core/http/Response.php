@@ -11,8 +11,6 @@ namespace layer\core\http;
 
 class Response
 {
-
-    //IHttpCodes
     /***
      * @var int $response_code
      */
@@ -24,10 +22,13 @@ class Response
 
     private $headers;
 
+    private $data;
+
     public function __construct()
     {
         $this->response_code = IHttpCodes::OK;
         $this->headers = [];
+        $this->data = [];
     }
 
 
@@ -41,9 +42,8 @@ class Response
         return $this->headers;
     }
 
-    public function setContent($content)
-    {
-        $this->content = $content;
+    public function setResponseCode(int $code) {
+        $this->response_code = $code;
     }
 
     public function getResponseCode()
@@ -51,9 +51,16 @@ class Response
         return $this->response_code;
     }
 
-    public function getContent()
-    {
-        return $this->content;
+    public function setData($key, $value) {
+        $this->data[$key] = $value;
+    }
+
+    public function setDataArray($array) {
+        $this->data = $array;
+    }
+
+    public function getData() {
+        return $this->data;
     }
 
 }
