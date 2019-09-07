@@ -104,7 +104,6 @@ class Router {
             "error" => null
         ];
         $this->routes = [];
-
         // controleurs
         $path = dirname(__DIR__)."\service";
 
@@ -184,7 +183,9 @@ class Router {
                                                     "allows_null" => $reflectionParameter->allowsNull(),
                                                     "type" => $reflectionParameter->hasType() ? $reflectionParameter->getType()."" : null
                                                 ];
-                                                $urlPattern.='/{'.$reflectionParameter->getName().'}';
+                                                $rgx = '(.+)';
+                                                if($reflectionParameter->getType()."" == 'int') $rgx = '(\d+)';
+                                                $urlPattern .= '/'.$rgx;
                                             }
 
                                             $actionRouteNames = $actionAnnotation->verifyRouteNames();
@@ -215,6 +216,7 @@ class Router {
                                                 "layout_name" => $controllerAnnotation->api || $actionAnnotation->api || !$viewName ? null : $layoutName,
                                                 "parameters" => $parameters
                                             ];
+
                                         }
                                     }
                                 }
@@ -457,7 +459,20 @@ class Router {
 
                 $method = $actionMetaData['method_name'];
 
-                $controller->$method();
+                array_shift($this->urlParts);
+                $actionParameters = [];
+                foreach ($actionMetaData['parameters'] as $param) {
+                    if(isset($this->urlParts[0])) {
+                        $actionParameters[$param['name']] = $this->urlParts[0];
+                    } else if( $param['default'] != null || $param['allows_null'] == true) {
+                        $actionParameters[$param['name']] = $param['default'];
+                    } else {
+                        throw new Exception("Required parameter is missing", HttpHeaders::BadRequest);
+                    }
+                    array_shift($this->urlParts);
+                }
+                $reflectionMethod = $reflectionController->getMethod($method);
+                $reflectionMethod->invokeArgs($controller, $actionParameters);
 
                 if($this->isRequestForward) {
                     $this->isRequestForward = false;

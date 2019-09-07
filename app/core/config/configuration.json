@@ -9,6 +9,9 @@
         "connectionString" : ""
       }
   },
+  "cors" : {
+
+  },
   "layouts" : {
     "basic": {
       "before": ["header","navbar","breadcrumbs"],
