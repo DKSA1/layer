@@ -46,7 +46,7 @@ class ViewModel {
             //adding intro partial views
             if(count($this->intro)>0){
                 foreach ($this->intro as $i){
-                    require_once (PATH . "app/service/#shared/view/" . $i . ".php");
+                    require (PATH . "app/service/#shared/view/" . $i . ".php");
                 }
             }
             //main part
@@ -54,7 +54,7 @@ class ViewModel {
             //adding final partial views
             if(count($this->final)>0){
                 foreach ($this->final as $f){
-                    require_once (PATH . "app/service/#shared/view/" . $f . ".php");
+                    require (PATH . "app/service/#shared/view/" . $f . ".php");
                 }
             }
 

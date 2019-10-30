@@ -63,4 +63,12 @@ class Response
         return $this->data;
     }
 
+    public function setContent($content) {
+        $this->content = $content;
+    }
+
+    public function getContent() {
+        return $this->content;
+    }
+
 }

@@ -43,6 +43,11 @@ class Router {
      */
     private $controllers;
 
+    /**
+    *  @var Filter[]
+    */
+    private $filters = [];
+
     private $routes;
 
     private $shared;
@@ -155,7 +160,7 @@ class Router {
                             $this->routes[$controllerName] = [
                                 "namespace" => $reflectionClass->name,
                                 "path" => trim($phpFile),
-                                "filters_name" => $controllerAnnotation->filters,
+                                "filters_name" => array_map('strtolower', $controllerAnnotation->filters),
                                 "actions" => []
                             ];
                             // methods
@@ -211,7 +216,7 @@ class Router {
                                                 "method_name" => $reflectionMethod->name,
                                                 "url_pattern" => $urlPattern,
                                                 "request_methods" => $actionAnnotation->verifyMethods(),
-                                                "filters_name" => $actionAnnotation->filters,
+                                                "filters_name" => array_diff(array_map('strtolower', $actionAnnotation->filters), $this->routes[$controllerName]['filters_name']),
                                                 "view_name" => $controllerAnnotation->api || $actionAnnotation->api ? null : $viewName,
                                                 "layout_name" => $controllerAnnotation->api || $actionAnnotation->api || !$viewName ? null : $layoutName,
                                                 "parameters" => $parameters
@@ -291,7 +296,7 @@ class Router {
                             } else {
                                 $controllerName = str_replace("Filter", "", str_replace(".php", "", basename($phpFile)));
                             }
-                            $this->shared['filters'][$controllerName] = [
+                            $this->shared['filters'][strtolower($controllerName)] = [
                                 "namespace" => $reflectionClass->name,
                                 "path" => trim($phpFile)
                             ];
@@ -400,13 +405,36 @@ class Router {
                 $arrAfter = Configuration::get("layouts/$layoutName/after");
                 $viewModel->addFinalViews($arrAfter);
             }
-            $content = $viewModel->generer($this->response->getData());
+            $this->response->setContent($viewModel->generer($this->response->getData()));
         } else {
-            $content = json_encode($this->response->getData());
+            $this->response->setContent(json_encode($this->response->getData()));
         }
 
-        $this->sendResponse($content);
+        $this->sendResponse();
 
+    }
+
+    private function applyFilters($names) {
+        foreach($names as $name) {
+            if(array_key_exists($name, $this->shared['filters'])) {
+                if(!array_key_exists($name, $this->filters)) {
+                    require_once($this->shared['filters'][$name]['path']);
+                    $reflectionFilter = new \ReflectionClass($this->shared['filters'][$name]['namespace']);
+                    $this->filters[$name] = $reflectionFilter->newInstance();
+                    // setting request
+                    $property = $reflectionFilter->getProperty('request');
+                    $property->setAccessible(true);
+                    $property->setValue($this->filters[$name], $this->request);
+                    // setting response
+                    $property = $reflectionFilter->getProperty('response');
+                    $property->setAccessible(true);
+                    $property->setValue($this->filters[$name], $this->response);
+                    $this->filters[$name]->enter();
+                } else {
+                    $this->filters[$name]->leave();
+                }
+            }
+        }
     }
 
     private function initController($routeMetaData) {
@@ -414,6 +442,8 @@ class Router {
             $routeMetaData = $this->routes[$routeMetaData['forward']];
         }
         if (file_exists($routeMetaData['path'])) {
+            // controller filters enter
+            $this->applyFilters($routeMetaData['filters_name']);
             require_once $routeMetaData['path'];
             array_shift($this->urlParts);
             if(isset($this->urlParts[0])) {
@@ -431,6 +461,7 @@ class Router {
                 // no default action
                 throw new Exception("Action not found",HttpHeaders::NotFound);
             }
+
         } else {
             // file missing
             throw new Exception("Resource not found",HttpHeaders::InternalServerError);
@@ -446,7 +477,8 @@ class Router {
             $reflectionController = new \ReflectionClass($routeMetaData['namespace']);
             // allowed method
             if($reflectionController->hasMethod($actionMetaData['method_name'])) {
-
+                // action filters enter
+                $this->applyFilters($actionMetaData['filters_name']);
                 $controller = $reflectionController->newInstance();
                 // setting request
                 $property = $reflectionController->getProperty('request');
@@ -487,12 +519,17 @@ class Router {
                         $arrAfter = Configuration::get("layouts/$layoutName/after");
                         $viewModel->addFinalViews($arrAfter);
                     }
-                    $content = $viewModel->generer($this->response->getData());
+                    $this->response->setContent($viewModel->generer($this->response->getData()));
                 } else {
-                    $content = json_encode($this->response->getData());
+                    $this->response->setContent(json_encode($this->response->getData()));
                 }
 
-                $this->sendResponse($content);
+                // action filters leave
+                $this->applyFilters($actionMetaData['filters_name']);
+                // controller filters leave
+                $this->applyFilters($routeMetaData['filters_name']);
+
+                $this->sendResponse();
 
             }
         } else {
@@ -501,7 +538,7 @@ class Router {
         }
     }
 
-    private function sendResponse($content) {
+    private function sendResponse() {
 
         HttpHeaders::ResponseHeader($this->response->getResponseCode());
 
@@ -509,7 +546,7 @@ class Router {
             header($h.":".$v, true, $this->response->getResponseCode());
         }
 
-        echo $content;
+        echo $this->response->getContent();
     }
 
     public function routerRequete()

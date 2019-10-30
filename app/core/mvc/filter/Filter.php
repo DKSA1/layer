@@ -22,6 +22,6 @@ abstract class Filter
      */
     protected $response;
 
-    abstract public function input();
-    abstract public function output();
+    abstract public function enter();
+    abstract public function leave();
 }
