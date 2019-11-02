@@ -6,7 +6,7 @@
       },
       "unitname2" : {
         "type" : "database",
-        "connectionString" : ""
+        "connectionString" : "mysql:host=localhost;root;;"
       }
   },
   "cors" : {
