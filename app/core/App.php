@@ -173,7 +173,7 @@ class App
             if(array_key_exists('COMPOSITE_FIELDS', $field)) {
                 $this->buildSQLCompositeEntities($field['COMPOSITE_FIELDS'], $stmt);
             } else {
-                $stmt .= $field['NAME']." ".$field['TYPE']." ".($field['AUTO_INCREMENT'] > -1 ? 'AUTO_INCREMENT' : '')." ".($field['NULLABLE'] ? 'NOT NULL' : '')." ".($field['UNIQUE'] ? 'UNIQUE' : '')." ".($field['DEFAULT'] ? 'DEFAULT "'.$field['DEFAULT'].'"' : '').", ";
+                $stmt .= $field['NAME']." ".$field['TYPE']." ".($field['AUTO_INCREMENT'] > -1 ? 'AUTO_INCREMENT' : '')." ".($field['NULLABLE']==true ? '' : 'NOT NULL' )." ".($field['UNIQUE']==true ? 'UNIQUE' : '')." ".($field['DEFAULT'] ? 'DEFAULT "'.$field['DEFAULT'].'"' : '').", ";
             }
         }
     }
@@ -195,22 +195,80 @@ class App
     private function buildSQLFKConstraints($e, & $stmt, & $entities) {
         if(count($e['FK'])>0) {
             foreach ($e['FK'] as $name => $fk) {
-                // check relation type
-                // alter table add columns
                 $relationEntity = $entities[$fk['REFERENCES']];
-                $fkNames = [];
-                foreach ($relationEntity['PK'] as $primaryKeyName) {
-                        $pk = $relationEntity['FIELDS'][$primaryKeyName];
-                        $name = $fk['NAME'].'_'.$pk['NAME'];
-                        $stmt .= 'ALTER TABLE '.$e['NAME'].'
-                          ADD '.$name.' '.$pk['TYPE'].';';
-                        $fkNames[] = $name;
+                // check relation type
+                switch ($fk['RELATION_TYPE']) {
+                    case('N-O'):
+                        // the relationEntity own the FK
+                    case('O-N'):
+                        // the current entity own the FK
+                                $fkNames = [];
+
+                                foreach ($relationEntity['PK'] as $primaryKeyName) {
+                                    $pk = $relationEntity['FIELDS'][$primaryKeyName];
+                                    $name = $fk['NAME'].'_'.$pk['NAME'];
+                                    $stmt .= 'ALTER TABLE '.$e['NAME'].'
+                                      ADD '.$name.' '.$pk['TYPE'].';';
+                                    $fkNames[] = $name;
+                                }
+
+                                // alter table add fk
+                                $stmt .= 'ALTER TABLE '.$e['NAME'].'
+                                      ADD CONSTRAINT FK_'.$fk['NAME']."_".$relationEntity['NAME']."_".implode('_',$relationEntity['PK']).'
+                                      FOREIGN KEY ('.implode(',',$fkNames).') REFERENCES '.$relationEntity['NAME'].'('.implode(',',$relationEntity['PK']).');';
+                                break;
+                    case('O-O'):
+                        // both entities own the FK
+                        break;
+                    case('N-N'):
+                        // middle table with FK to the other 2 tables
+                                // create middle table
+                                $middleTableFields = [];
+                                $middleTablePks = [ 'NAME' => $fk['NAME'].'_'.$relationEntity['NAME'].'_'.$e['NAME'] ];
+
+                                $primaryTablePKNames = [];
+                                foreach ($e['PK'] as $pkName) {
+                                     $tableField = $e['FIELDS'][$pkName];
+                                     $tableField['NAME'] = $e['NAME'].'_'.$tableField['NAME'];
+                                     $primaryTablePKNames[] = $tableField['NAME'];
+                                     $tableField['UNIQUE'] = false;
+                                     $tableField['DEFAULT'] = null;
+                                     $tableField['AUTO_INCREMENT'] = -1;
+                                     $middleTableFields[] = $tableField;
+                                }
+
+                                $fk1 = 'ALTER TABLE '.$middleTablePks['NAME'].'
+                                              ADD CONSTRAINT FK_'.$middleTablePks['NAME']."_".implode('_',$e['PK']).'_1
+                                              FOREIGN KEY ('.implode(',',$primaryTablePKNames).') REFERENCES '.$e['NAME'].'('.implode(',',$e['PK']).');';
+
+                                $secondaryTablePKNames = [];
+                                foreach ($relationEntity['PK'] as $pkName) {
+                                    $tableField = $relationEntity['FIELDS'][$pkName];
+                                    $tableField['NAME'] = $relationEntity['NAME'].'_'.$tableField['NAME'];
+                                    $secondaryTablePKNames[] = $tableField['NAME'];
+                                    $tableField['UNIQUE'] = false;
+                                    $tableField['DEFAULT'] = null;
+                                    $tableField['AUTO_INCREMENT'] = -1;
+                                    $middleTableFields[] = $tableField;
+                                }
+
+                                $fk2 = 'ALTER TABLE '.$middleTablePks['NAME'].'
+                                                      ADD CONSTRAINT FK_'.$middleTablePks['NAME']."_".implode('_',$relationEntity['PK']).'_2
+                                                      FOREIGN KEY ('.implode(',',$secondaryTablePKNames).') REFERENCES '.$relationEntity['NAME'].'('.implode(',',$relationEntity['PK']).');';
+
+                                $middleTablePks['PK'] = array_merge($primaryTablePKNames,$secondaryTablePKNames);
+
+                                $tableStmt = '';
+                                $this->buildSQLCompositeEntities($middleTableFields, $tableStmt);
+                                $pkStmt = '';
+                                $this->buildSQLPrimaryKeys($middleTablePks,$pkStmt);
+
+                                $stmt .= " CREATE TABLE IF NOT EXISTS ".$middleTablePks['NAME']." ( ".trim($tableStmt,', ')." $pkStmt ) ;";
+
+                                $stmt .= $fk1.$fk2;
+                        break;
                 }
 
-                // alter table add fk
-                $stmt .= 'ALTER TABLE '.$e['NAME'].'
-                          ADD CONSTRAINT FK_'.$fk['NAME']."_".$relationEntity['NAME']."_".implode('_',$relationEntity['PK']).'
-                          FOREIGN KEY ('.implode(',',$fkNames).') REFERENCES '.$relationEntity['NAME'].'('.implode(',',$relationEntity['PK']).');';
             }
         }
     }
