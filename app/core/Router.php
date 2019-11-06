@@ -61,6 +61,8 @@ class Router {
 
     private $isRequestForward = false;
 
+    private $time;
+
     public static function getInstance() : Router
     {
         if(self::$instance == null) self::$instance = new Router();
@@ -95,6 +97,8 @@ class Router {
     private function __construct(){
         $this->request = new Request();
         $this->response = new Response();
+
+        $this->time = - $this->request->getServer('REQUEST_TIME_FLOAT');
 
         if(true || !($this->loadRoutesMap() && $this->loadShared())) {
             $this->buildRouteMap();
@@ -546,6 +550,9 @@ class Router {
             header($h.":".$v, true, $this->response->getResponseCode());
         }
 
+        $this->time += microtime(true);
+
+        echo 'RESPONSE TIME: '.$this->time;
         echo $this->response->getContent();
     }
 
