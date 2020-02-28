@@ -6,10 +6,10 @@
  * Time: 13:25
  */
 
-namespace layer\core\persistence\database\ql\select;
+namespace layer\core\persistence\ql\select;
 
-use layer\core\persistence\database\ql\operator\logical\ICondition;
-use layer\core\persistence\database\ql\operator\logical\ILogical;
+use layer\core\persistence\ql\operator\logical\ICondition;
+use layer\core\persistence\ql\operator\logical\ILogical;
 
 class Select implements ISelect1,ISelect2,ISelect3,ISelect4,ISelect5,ISelect6,ISelect7
 {

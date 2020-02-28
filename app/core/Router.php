@@ -8,21 +8,18 @@
 namespace layer\core;
 
 use layer\core\config\Configuration;
+use layer\core\exception\ForwardException;
 use layer\core\http\HttpHeaders;
 use Exception;
-use layer\core\http\IHttpCodes;
 use layer\core\http\Request;
 use layer\core\http\Response;
 use layer\core\mvc\controller\Controller;
 use layer\core\mvc\controller\ErrorController;
 use layer\core\mvc\filter\Filter;
 use layer\core\mvc\model\ViewModel;
-use layer\service\ErrorsController;
-use layer\core\mvc\MvcAnnotation;
+use layer\core\utils\Logger;
 
 class Router {
-
-
     /**
      * @var Request $request
      */
@@ -59,9 +56,15 @@ class Router {
 
     private $isApiUrlCall;
 
-    private $isRequestForward = false;
-
-    private $time;
+    private function __construct(){
+        $this->request = new Request();
+        $this->response = new Response();
+        Logger::$request = $this->request;
+        Logger::$response = $this->response;
+        if(Configuration::get('layer')[Configuration::$environment]["buildRoutesMap"] || !($this->loadRoutesMap() && $this->loadShared())) {
+            $this->buildRoutesMap();
+        }
+    }
 
     public static function getInstance() : Router
     {
@@ -94,18 +97,11 @@ class Router {
             return false;
     }
 
-    private function __construct(){
-        $this->request = new Request();
-        $this->response = new Response();
-
-        $this->time = - $this->request->getServer('REQUEST_TIME_FLOAT');
-
-        if(true || !($this->loadRoutesMap() && $this->loadShared())) {
-            $this->buildRouteMap();
-        }
+    private function buildSharedMap() {
+        // TODO : implement this
     }
 
-    private function buildRouteMap()
+    private function buildRoutesMap()
     {
         $this->shared = [
             "filters" => [],
@@ -114,10 +110,10 @@ class Router {
         ];
         $this->routes = [];
         // controleurs
-        $path = dirname(__DIR__)."\service";
+        $path = dirname(__DIR__) . "\services";
 
         //check annotations on controller & action
-        require_once PATH."app/core/mvc/mvcAnnotations.php";
+        require_once PATH."app/core/mvc/annotation/MVCAnnotations.php";
 
         $allFiles = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path));
         $phpFiles = new \RegexIterator($allFiles, '/\.php$/');
@@ -212,7 +208,7 @@ class Router {
                                                 $actionName = strtolower($reflectionMethod->name);
                                             }
                                             $urlPattern = ($controllerAnnotation->api || $actionAnnotation->api ? '/api' : '') .'/'.$controllerName.'/'.$actionName.$urlPattern;
-                                            $viewName = $actionAnnotation->viewName == null ? $reflectionMethod->name : $actionAnnotation->viewName;
+                                            $viewName = $actionAnnotation->viewName ?? $reflectionMethod->name;
                                             $viewName = file_exists(dirname($phpFile).'/view/'.$viewName.'.php') ? $viewName : null;
                                             $layoutName = !$actionAnnotation->layoutName ? $layoutName : (Configuration::get('layouts/'.$actionAnnotation->layoutName) ? $actionAnnotation->layoutName : null);
                                             $this->routes[$controllerName]['actions'][$actionName] = [
@@ -327,42 +323,39 @@ class Router {
 
     public function handleRequest($baseUrl = null) {
         try {
-
-            if($baseUrl) {
-                $this->isRequestForward = true;
-            } else {
-               $baseUrl = $this->request->getBaseUrl();
-            }
+            $baseUrl = $baseUrl ?? $this->request->getBaseUrl();
 
             $this->isApiUrlCall = false;
 
-            $this->urlParts = explode('/',trim(strtolower($baseUrl), '/'));
+            $this->urlParts = explode('/', trim(strtolower($baseUrl), '/'));
 
             if (count($this->urlParts) > 0) {
-                if(stripos($this->urlParts[0], 'api') > -1) {
+                if (stripos($this->urlParts[0], 'api') > -1) {
                     $this->isApiUrlCall = true;
                     array_shift($this->urlParts);
                 }
-                if(isset($this->urlParts[0]) && array_key_exists($this->urlParts[0], $this->routes)) {
+                if (isset($this->urlParts[0]) && array_key_exists($this->urlParts[0], $this->routes)) {
                     $this->initController($this->routes[$this->urlParts[0]]);
                 } else {
                     // route not found
-                    throw new Exception("Route not found",HttpHeaders::NotFound);
+                    throw new Exception("Route not found", HttpHeaders::NotFound);
                 }
-            } else if(array_key_exists("", $this->routes)) {
+            } else if (array_key_exists("", $this->routes)) {
                 // root controller & actions
                 $routeMetaData = $this->routes[""];
                 $this->initController($routeMetaData);
             } else {
-                throw new Exception("Default route not found",HttpHeaders::NotFound);
+                throw new Exception("Default route not found", HttpHeaders::NotFound);
             }
+        }catch(ForwardException $e) {
+            Logger::write("[".$e->getForwardHttpCode()."] Forwarding request to new location: ".$e->getForwardLocation());
+            $this->handleRequest($e->getForwardLocation());
         }catch(Exception $e) {
-            // TODO : change RouterException
             $this->handleError($e);
         }
     }
 
-    private function handleError( Exception $e) {
+    private function handleError(Exception $e) {
         $method = 'index';
         $controllerMetaData = null;
         $actionName = null;
@@ -443,7 +436,8 @@ class Router {
 
     private function initController($routeMetaData) {
         if (array_key_exists('forward', $routeMetaData)) {
-            $routeMetaData = $this->routes[$routeMetaData['forward']];
+            $this->initController($this->routes[$routeMetaData['forward']]);
+            return;
         }
         if (file_exists($routeMetaData['path'])) {
             // controller filters enter
@@ -453,14 +447,14 @@ class Router {
             if(isset($this->urlParts[0])) {
                 // actions
                 if(array_key_exists($this->urlParts[0], $routeMetaData['actions'])) {
-                    $this->initAction($routeMetaData);
+                    $this->initAction($routeMetaData, $routeMetaData['actions'][$this->urlParts[0]]);
                 } else {
                     // action not found
                     throw new Exception("Action not found",HttpHeaders::NotFound);
                 }
             } else if(isset($routeMetaData['actions'][''])) {
                 $this->urlParts[0] = '';
-                $this->initAction($routeMetaData);
+                $this->initAction($routeMetaData, $routeMetaData['actions'][$this->urlParts[0]]);
             } else {
                 // no default action
                 throw new Exception("Action not found",HttpHeaders::NotFound);
@@ -472,10 +466,10 @@ class Router {
         }
     }
 
-    private function initAction($routeMetaData) {
-        $actionMetaData = $routeMetaData['actions'][$this->urlParts[0]];
+    private function initAction($routeMetaData, $actionMetaData) {
         if (array_key_exists('forward', $actionMetaData)) {
-            $actionMetaData = $routeMetaData['actions'][$actionMetaData['forward']];
+            $this->initAction($routeMetaData, $routeMetaData['actions'][$actionMetaData['forward']]);
+            return;
         }
         if(in_array(strtolower($this->request->getRequestMethod()), $actionMetaData['request_methods'])) {
             $reflectionController = new \ReflectionClass($routeMetaData['namespace']);
@@ -510,11 +504,6 @@ class Router {
                 $reflectionMethod = $reflectionController->getMethod($method);
                 $reflectionMethod->invokeArgs($controller, $actionParameters);
 
-                if($this->isRequestForward) {
-                    $this->isRequestForward = false;
-                    return;
-                }
-
                 if(!$this->isApiUrlCall && $actionMetaData['view_name']) {
                     $viewModel = new ViewModel(dirname($routeMetaData['path']), $actionMetaData['view_name']);
                     if ($layoutName = $actionMetaData['layout_name']) {
@@ -528,13 +517,13 @@ class Router {
                     $this->response->setContent(json_encode($this->response->getData()));
                 }
 
+
                 // action filters leave
                 $this->applyFilters($actionMetaData['filters_name']);
                 // controller filters leave
                 $this->applyFilters($routeMetaData['filters_name']);
 
                 $this->sendResponse();
-
             }
         } else {
             // method not allowed
@@ -543,188 +532,18 @@ class Router {
     }
 
     private function sendResponse() {
-
         HttpHeaders::ResponseHeader($this->response->getResponseCode());
 
         foreach ($this->response->getHeaders() as $h => $v) {
             header($h.":".$v, true, $this->response->getResponseCode());
         }
 
-        $this->time += microtime(true);
-
-        echo 'RESPONSE TIME: '.$this->time;
         echo $this->response->getContent();
-    }
 
-    public function routerRequete()
-    {
-        try {
-            //default controller & action
-            $def = Configuration::get("defaults/root");
-            $controleur = $def['controller'];
-            $action = $def['action'];
+        $d = new \DateTime();
+        $d->setTimestamp((microtime(true) - $this->request->getRequestTime()));
 
-            $params = null;
-            $apiCall = false;
-
-            $this->request = array_merge($_GET, $_POST);
-
-            //specified controller / action
-            if (isset($this->request['url']) && $this->request['url'] != "") {
-                $array = explode("/",trim($this->request['url'],"/"));
-                //is api call
-                $apiCall = (isset($array[0]) && strtolower($array[0])=="api") ? true : false;
-                if($apiCall) {
-                    array_shift($array);
-                }
-                $controleur = isset($array[0]) ? str_replace(".php","",$array[0]) : $controleur;
-                $action = isset($array[1]) ? $array[1] : $action;
-                $params = array_slice($array,2);
-            }
-
-            $arrRoute = $this->customRoutes($controleur,$action);
-            $controleurName = $arrRoute[0];
-            $action = $arrRoute[1];
-
-            $controleur = $this->createController($controleurName);
-
-            //$controleur->setAction($action);
-            //$controleur->setParams($params);
-            //$controleur->setData($this->request);
-            //$controleur->setMethod($_SERVER['REQUEST_METHOD']);
-            //$controleur->setIsApiCall($apiCall);
-
-            /*if(!$controleur->actionExists($action)){
-                throw new Exception("Aucune action ne correspond à votre requète",HttpHeaders::NotFound);
-            }*/
-
-            //check annotations on controller & action
-            require_once PATH."app/core/mvc/mvcAnnotations.php";
-            $reflectionClass = new \ReflectionAnnotatedClass($controleur);
-            //check controller
-            $controllerAnnotation = $reflectionClass->getAnnotation("Controller");
-            //has annotation
-            if($controllerAnnotation){
-                if(!$controllerAnnotation->mapped)
-                {
-                    throw new Exception("Controller not found",HttpHeaders::BadRequest);
-                }
-            }
-            //check action
-            $reflectionMethod = $reflectionClass->getMethod($action);
-            //action exists
-            if($reflectionMethod==null)
-                throw new Exception("Action not found",HttpHeaders::BadRequest);
-            //check method visibility
-            if($reflectionMethod->isPrivate() || $reflectionMethod->isProtected())
-            {
-                throw new Exception("Action not found",HttpHeaders::BadRequest);
-            }
-            $actionAnnotation = $reflectionMethod->getAnnotation("Action");
-            //has annotation
-            if($actionAnnotation) {
-               //check mapped
-               if(!$actionAnnotation->mapped)
-               {
-                   throw new Exception("Action not found",HttpHeaders::BadRequest);
-               }
-               //check method allowed
-               if(!$actionAnnotation->hasRequestMethod($_SERVER['REQUEST_METHOD']))
-               {
-                   throw new Exception("Method not allowed",HttpHeaders::BadRequest);
-               }
-               //api call allowed
-               if($apiCall==true && $actionAnnotation->api==false)
-               {
-                   throw new Exception("Wrong API call",HttpHeaders::BadRequest);
-               }
-               else if(!$apiCall && $actionAnnotation->api==true)
-               {
-                   throw new Exception("Wrong API call",HttpHeaders::BadRequest);
-               }
-            }else if($apiCall==true) {
-                //api not available or correctly configured
-                throw new Exception("Resource not found",HttpHeaders::BadRequest);
-            }
-
-            define("CONTROLLER",$controleurName);
-            define("ACTION",$action);
-
-            //$controleur->executeAction();
-
-            }
-        catch (Exception $e) {
-            $this->gererErreur($e);
-        }
-    }
-
-    /**
-     * @return Controller
-     * @throws Exception
-     */
-    private function createController($controleur) : Controller
-    {
-        // Contrôleur par défaut => page d'accueil
-        //$controleur = $controleur == null ? "homepage" : $controleur;
-        // Première lettre en majuscules
-        $controleur = ucfirst(strtolower($controleur));
-        $classeControleur = $controleur."Controller";
-        $fichierControleur = PATH."app\service\\$controleur\\" . $classeControleur . ".php";
-
-        if (file_exists($fichierControleur)){
-            // Instanciation du contrôleur adapté à la requête
-            require_once $fichierControleur;
-            $classeControleur = "layer\service\\".$classeControleur;
-            $reflection = new \ReflectionClass($classeControleur);
-
-            if(!$reflection->isSubclassOf(Controller::class))
-                throw new Exception("Controller configuration error ", HttpHeaders::InternalServerError);
-
-            /**
-             * @var Controller $controleur
-             */
-            $controleur = $reflection->newInstance();
-            // sauvegarde de l'instance (singleton)
-            $this->controllers[$classeControleur] = $controleur;
-            // retour de l'instance
-            return $controleur;
-        } else {
-            throw new Exception("Resource not found",HttpHeaders::NotFound);
-        }
-
-    }
-
-    private function customRoutes($page,$action) : array
-    {
-        //link request to custom controller
-        $addRoutes = Configuration::get("routes/add");
-        if(array_key_exists($page,$addRoutes))
-        {
-            return [$addRoutes[$page]["controller"],isset($addRoutes[$page]["action"]) ? $addRoutes[$page]["action"] : "index"];
-        }
-
-        //remove request/controller
-        $removeRoutes = Configuration::get("routes/remove");
-        if(in_array($page,$removeRoutes))
-        {
-            throw new Exception("Aucun résultat pour votre recherche",HttpHeaders::NotFound);
-        }
-
-        return [$page,$action];
-    }
-
-    // gestion et affichage des erreurs
-    private function gererErreur(Exception $exception)
-    {
-        require_once PATH."app\\service\\errors\\errorscontroller.php";
-        $eController = new ErrorsController();
-        //load default behaviour
-        $def = Configuration::get("defaults/root");
-        if(!defined('CONTROLLER')) define("CONTROLLER",$def['controller']);
-        if(!defined('ACTION')) define("ACTION",$def['action']);
-        $eController->code = $exception->getCode();
-        $eController->output = ["title"=>"Erreur ".$exception->getCode(),"content" => $exception->getMessage(), "public" => "/git/devboard/public/" ];
-        //$eController->executeAction();
+        Logger::write("[".$this->response->getResponseCode()."] Serving content in ".$d->format('s.u')." ms");
     }
 
     /**

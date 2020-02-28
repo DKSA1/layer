@@ -6,7 +6,7 @@
  * Time: 13:29
  */
 
-namespace layer\core\persistence\database\ql\update;
+namespace layer\core\persistence\ql\update;
 
 
 class Update implements IUpdate1,IUpdate2

@@ -6,8 +6,8 @@
  * Time: 13:28
  */
 
-namespace layer\core\persistence\database\ql\select;
-use layer\core\persistence\database\ql\operator\logical\ILogical;
+namespace layer\core\persistence\ql\select;
+use layer\core\persistence\ql\operator\logical\ILogical;
 
 interface ISelect3 extends ILogical
 {

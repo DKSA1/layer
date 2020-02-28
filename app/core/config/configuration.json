@@ -1,11 +1,6 @@
 {
   "persistences" : {
-      "unitname" : {
-        "type" : "file",
-        "connectionString"  : "/resources"
-      },
-      "unitname2" : {
-        "type" : "database",
+      "localhost" : {
         "connectionString" : "mysql:host=localhost;root;;"
       }
   },
@@ -24,12 +19,28 @@
         "app_author"  : "Loris Rossi",
         "app_description" : "MVC PHP Framework",
         "app_keywords"  :  ["test","test2","test3"],
-
-
         "contact" : "loris.rossi@outlook.com",
         "app" : "test45"
   },
   "core" : {
-      "route" : "[controller:homepage]/[action:index]"
+      "models" : "app/models",
+      "services": "app/services",
+      "libs": "app/vendor",
+      "public": "public"
+  },
+  "layer" : {
+      "environment" : "dev",
+      "logTemplate" : "[{request_datetime}][{client_ip}][{request_method}:{request_resource}]:{message}",
+      "logFolder" : "logs",
+      "dev": {
+        "buildRoutesMap": true,
+        "buildRelationalMap": false,
+        "buildSharedMap": true
+      },
+      "prod": {
+        "buildRoutesMap": false,
+        "buildRelationalMap": false,
+        "buildSharedMap": false
+      }
   }
 }

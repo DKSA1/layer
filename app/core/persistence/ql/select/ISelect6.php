@@ -6,7 +6,7 @@
  * Time: 13:30
  */
 
-namespace layer\core\persistence\database\ql\select;
+namespace layer\core\persistence\ql\select;
 
 
 interface ISelect6

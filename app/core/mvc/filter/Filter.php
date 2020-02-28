@@ -8,6 +8,8 @@
 
 namespace layer\core\mvc\filter;
 
+use layer\core\exception\ForwardException;
+use layer\core\http\HttpHeaders;
 use layer\core\http\Request;
 use layer\core\http\Response;
 
@@ -21,6 +23,11 @@ abstract class Filter
      * @var Response $response
      */
     protected $response;
+
+    protected final function forward($internalUrl, $httpCode = HttpHeaders::MovedTemporarily)
+    {
+        throw new ForwardException($httpCode, $internalUrl);
+    }
 
     abstract public function enter();
     abstract public function leave();

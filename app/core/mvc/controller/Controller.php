@@ -8,6 +8,7 @@
 namespace layer\core\mvc\controller;
 
 use layer\core\config\Configuration;
+use layer\core\exception\ForwardException;
 use layer\core\http\HttpHeaders;
 use layer\core\http\IHttpHeaders;
 use layer\core\http\Request;
@@ -76,10 +77,18 @@ abstract class Controller {
 
     /**
      * @param string $internalUrl
+     * @param bool $temporarilyMoved
+     * @throws ForwardException
      */
-    // TODO : move permanently 301
-    protected final function forward($internalUrl){
-        Router::getInstance()->handleRequest($internalUrl);
+    protected final function forward($internalUrl, $temporarilyMoved = true){
+        if($temporarilyMoved) {
+            $this->response->setResponseCode(HttpHeaders::MovedTemporarily);
+        } else {
+            $this->response->setResponseCode(HttpHeaders::MovedPermanently);
+        }
+        throw new ForwardException($this->response->getResponseCode(), $internalUrl);
+        // Router::getInstance()->handleRequest($internalUrl);
+        // TODO : throw exception forwardException
         //check if controller was already instanciated
         /*$c = Router::getInstance()->getInstancedController($controller);
         if(!$controller){

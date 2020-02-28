@@ -4,13 +4,8 @@ require_once(PATH . 'app/lib/addendum/annotations.php');
 
 // TODO : divide class in different files
 
-interface MvcAnnotation
-{
-
-}
-
 /** @Target("class") */
-class Filter extends Annotation implements MvcAnnotation
+class Filter extends Annotation
 {
     public $name = null;
 
@@ -25,7 +20,7 @@ class Filter extends Annotation implements MvcAnnotation
 }
 
 /** @Target("class") */
-class Controller extends Annotation implements MvcAnnotation
+class Controller extends Annotation
 {
     /**
      * @var bool
@@ -63,7 +58,7 @@ class Controller extends Annotation implements MvcAnnotation
 }
 
 /** @Target("method") */
-class Action extends Annotation implements MvcAnnotation
+class Action extends Annotation
 {
     /**
      * @var string[]
@@ -118,14 +113,14 @@ class Action extends Annotation implements MvcAnnotation
     
 }
 
-class ErrorController extends Annotation implements MvcAnnotation {
+class ErrorController extends Annotation {
     /**
      * @var string
      */
     public $layoutName = null;
 }
 
-class ErrorAction extends Annotation implements MvcAnnotation {
+class ErrorAction extends Annotation {
     /**
      * @var string[]
      */
@@ -144,7 +139,7 @@ class ErrorAction extends Annotation implements MvcAnnotation {
     public $layoutName = null;
 }
 
-class DefaultController extends Controller implements MvcAnnotation {
+class DefaultController extends Controller {
 
 }
 

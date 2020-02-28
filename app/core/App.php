@@ -52,13 +52,13 @@ class App
     private function registerGlobals(){
 
         $appContext = Configuration::get("globals");
-        foreach ($appContext as $c => $v){
+        foreach ($appContext as $c => $v) {
             if(is_array($v)) $v = json_encode($v);
             define(strtoupper($c),$v);
         }
         define("APP_ROOT",rtrim($_SERVER["PHP_SELF"],"index.php"));
         define("APP_PUBLIC",APP_ROOT."public");
-        define("APP_SERVICE",APP_ROOT."app/service");
+        define("APP_SERVICES",APP_ROOT."app/services");
         define("APP_CORE",APP_ROOT."app/core");
         define("APP_LIB",APP_ROOT."app/lib");
     }

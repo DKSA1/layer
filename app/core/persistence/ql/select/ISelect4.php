@@ -3,14 +3,15 @@
  * Created by IntelliJ IDEA.
  * User: Home
  * Date: 15-12-18
- * Time: 13:29
+ * Time: 13:28
  */
 
-namespace layer\core\persistence\database\ql\select;
+namespace layer\core\persistence\ql\select;
 
 
-interface ISelect5
+interface ISelect4
 {
+    public function having() : ISelect5;
 
     public function orderBy() : ISelect6;
 

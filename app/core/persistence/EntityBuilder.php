@@ -1,8 +1,6 @@
 <?php
 
-
 namespace layer\core\persistence;
-
 
 use layer\core\config\Configuration;
 use layer\core\http\HttpHeaders;
@@ -26,8 +24,9 @@ class EntityBuilder
 
     private function __construct()
     {
-        $this->loadRelationalMap();
-        $this->buildObjectRelationalMap();
+        if(Configuration::get('layer')[Configuration::$environment]["buildRelationalMap"] || !$this->loadRelationalMap()) {
+            $this->buildRelationalMap();
+        }
     }
 
     public static function getInstance() : EntityBuilder
@@ -49,11 +48,11 @@ class EntityBuilder
             return false;
     }
 
-    private function buildObjectRelationalMap() {
+    private function buildRelationalMap() {
         // controleurs
         $path = PATH."app/models";
         //check annotations on controller & action
-        require_once PATH."app/core/persistence/lormAnnotations.php";
+        require_once PATH."app/core/persistence/annotation/LORMAnnotations.php";
 
         $allFiles = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path));
         $phpFiles = new \RegexIterator($allFiles, '/\.php$/');
@@ -65,24 +64,25 @@ class EntityBuilder
                  * @var \Entity $entity
                  */
                 $entity = $reflectionClass->getAnnotation('Entity');
-                $this->relationalMap[$entity->unitName][$reflectionClass->getShortName()] = [
-                    'NAME' => $entity->name ? $entity->name : $reflectionClass->getShortName(),
-                    'NAMESPACE' => $reflectionClass->name,
-                    'PATH' => trim($phpFile),
-                    'PK' => $entity->primaryKey,
-                    'UNIQUE' => $entity->unique,
-                    'FK' => [],
-                    'INDEX' => null,
-                    'DROP_IF_EXITS' => $entity->dropIfExists,
-                    'FIELDS' => []
-                ];
+                if(Configuration::get('persistences/'.$entity->unitName, false)) {
+                    $this->relationalMap[$entity->unitName][$reflectionClass->getShortName()] = [
+                        'NAME' => $entity->name ? $entity->name : $reflectionClass->getShortName(),
+                        'NAMESPACE' => $reflectionClass->name,
+                        'PATH' => trim($phpFile),
+                        'PK' => $entity->primaryKey,
+                        'UNIQUE' => $entity->unique,
+                        'FK' => [],
+                        'INDEX' => null,
+                        'DROP_IF_EXITS' => $entity->dropIfExists,
+                        'FIELDS' => []
+                    ];
 
-                $t = & $this->relationalMap[$entity->unitName][$reflectionClass->getShortName()];
+                    $t = & $this->relationalMap[$entity->unitName][$reflectionClass->getShortName()];
 
-                $this->buildCompositeMap($reflectionClass->name, $t['FIELDS'], $t);
+                    $this->buildCompositeMap($reflectionClass->name, $t['FIELDS'], $t);
+                }
             }
         }
-
         //$this->scanDatabase('unitname2');
         $success = false;
 
@@ -103,7 +103,7 @@ class EntityBuilder
             }
         }
 
-        echo $success.'<br>';
+        // echo $success;
 
         if($success) {
             $file = fopen("./app/core/config/relational_map.json", "w") or die("cannot write in relational_map.json file");
@@ -121,7 +121,6 @@ class EntityBuilder
     }
 
     private function updateSQLEntities($u) {
-        var_dump($this->relationalMap);
         foreach ($u as $dbName => $db) {
             if($this->connectSQLDatabase($dbName)) {
                 foreach ($db as $eName => $entity) {
@@ -132,7 +131,11 @@ class EntityBuilder
                                 $this->addQueryToQueue('ALTER TABLE '.$this->oldRelationalMap[$dbName][$eName]['NAME'].' RENAME TO '.$this->relationalMap[$dbName][$eName]['NAME'].' ;');
                                 break;
                             case('PK'):
-                                // TODO : drop PK in FK table
+                                // TODO : drop FK in FK table
+                                // TODO : delete column
+                                // TODO : add column
+                                // TODO : delete column in FK table
+                                // TODO : add FK
                                 // remove and add PK
                                 foreach ($this->oldRelationalMap[$dbName][$eName]['PK'] as $pk) {
                                     if($this->oldRelationalMap[$dbName][$eName]['FIELDS'][$pk]['AUTO_INCREMENT'] > -1) {

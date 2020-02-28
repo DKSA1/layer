@@ -6,16 +6,16 @@
  * Time: 19:26
  */
 
-namespace layer\core\persistence\database\ql;
+namespace layer\core\persistence\ql;
 
-use layer\core\persistence\database\ql\create\Create;
-use layer\core\persistence\database\ql\create\ICreate1;
-use layer\core\persistence\database\ql\delete\Delete;
-use layer\core\persistence\database\ql\delete\IDelete1;
-use layer\core\persistence\database\ql\select\ISelect1;
-use layer\core\persistence\database\ql\select\Select;
-use layer\core\persistence\database\ql\update\IUpdate1;
-use layer\core\persistence\database\ql\update\Update;
+use layer\core\persistence\ql\create\Create;
+use layer\core\persistence\ql\create\ICreate1;
+use layer\core\persistence\ql\delete\Delete;
+use layer\core\persistence\ql\delete\IDelete1;
+use layer\core\persistence\ql\select\ISelect1;
+use layer\core\persistence\ql\select\Select;
+use layer\core\persistence\ql\update\IUpdate1;
+use layer\core\persistence\ql\update\Update;
 
 class QBuilder
 {

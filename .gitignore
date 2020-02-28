@@ -1,8 +1,7 @@
-
 .idea/
-
 dev_LR.iml
-
 resources/
-
-app/service/
+logs/
+app/services/
+robots.txt
+sitemap.xml

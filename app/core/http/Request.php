@@ -9,6 +9,8 @@
 namespace layer\core\http;
 
 
+use http\Url;
+
 class Request
 {
     /**
@@ -39,7 +41,31 @@ class Request
      * @var array
      */
     private $request_data;
-
+    /**
+     * @var string
+     */
+    private $client_ip;
+    /**
+     * @var int
+     */
+    private $client_port;
+    /**
+     * @var string
+     */
+    private $server_ip;
+    /**
+     * @var int
+     */
+    private $server_port;
+    /**
+     * @var int
+     */
+    private $request_time;
+    // TODO : add browser name detection
+    /**
+     * @var string
+     */
+    private $client_browser;
 
     public function __construct()
     {
@@ -47,9 +73,12 @@ class Request
         $this->full_url = $_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI'];
         $this->request_method = $_SERVER['REQUEST_METHOD'];
         $this->query_string = $_SERVER['QUERY_STRING'];
-
+        $this->client_ip = $_SERVER['HTTP_CLIENT_IP'] ?? ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR']);
+        $this->client_port = intval($_SERVER['REMOTE_PORT']);
+        $this->server_ip = $_SERVER['SERVER_ADDR'];
+        $this->server_port = intval($_SERVER['SERVER_PORT']);
+        $this->request_time = $_SERVER['REQUEST_TIME_FLOAT'];
         $this->request_data = array_merge($_GET, $_POST);
-
         $this->isHttps = (((isset($_SERVER['HTTPS'])) && (strtolower($_SERVER['HTTPS']) == 'on')) || ((isset($_SERVER['HTTP_X_FORWARDED_PROTO'])) && (strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) == 'https')));
         $this->isAsynchronousRequest = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
     }
@@ -248,6 +277,46 @@ class Request
     public function isAsynchronousRequest(): bool
     {
         return $this->isAsynchronousRequest;
+    }
+
+    /**
+     * @return string
+     */
+    public function getClientIp(): string
+    {
+        return $this->client_ip;
+    }
+
+    /**
+     * @return int
+     */
+    public function getClientPort(): int
+    {
+        return $this->client_port;
+    }
+
+    /**
+     * @return string
+     */
+    public function getServerIp(): string
+    {
+        return $this->server_ip;
+    }
+
+    /**
+     * @return int
+     */
+    public function getServerPort(): int
+    {
+        return $this->server_port;
+    }
+
+    /**
+     * @return int
+     */
+    public function getRequestTime(): int
+    {
+        return $this->request_time;
     }
 
 

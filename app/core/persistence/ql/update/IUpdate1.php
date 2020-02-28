@@ -6,7 +6,7 @@
  * Time: 13:30
  */
 
-namespace layer\core\persistence\database\ql\update;
+namespace layer\core\persistence\ql\update;
 
 
 interface IUpdate1

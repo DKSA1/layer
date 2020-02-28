@@ -46,7 +46,7 @@ class ViewModel {
             //adding intro partial views
             if(count($this->intro)>0){
                 foreach ($this->intro as $i){
-                    require (PATH . "app/service/#shared/view/" . $i . ".php");
+                    require (PATH . "app/services/#shared/view/" . $i . ".php");
                 }
             }
             //main part
@@ -54,7 +54,7 @@ class ViewModel {
             //adding final partial views
             if(count($this->final)>0){
                 foreach ($this->final as $f){
-                    require (PATH . "app/service/#shared/view/" . $f . ".php");
+                    require (PATH . "app/services/#shared/view/" . $f . ".php");
                 }
             }
 
@@ -70,7 +70,7 @@ class ViewModel {
     public function addIntroViews($partials = array())
     {
         foreach ($partials as $partial) {
-            if (file_exists(PATH . "app/service/#shared/view/" . $partial . ".php")) {
+            if (file_exists(PATH . "app/services/#shared/view/" . $partial . ".php")) {
                 $this->intro[] = $partial;
             }
         }
@@ -81,7 +81,7 @@ class ViewModel {
     public function addFinalViews($partials = array())
     {
         foreach ($partials as $partial) {
-            if (file_exists(PATH . "app/service/#shared/view/" . $partial . ".php")) {
+            if (file_exists(PATH . "app/services/#shared/view/" . $partial . ".php")) {
                 $this->final[] = $partial;
             }
         }

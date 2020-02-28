@@ -6,7 +6,7 @@
  * Time: 13:27
  */
 
-namespace layer\core\persistence\database\ql\select;
+namespace layer\core\persistence\ql\select;
 
 
 

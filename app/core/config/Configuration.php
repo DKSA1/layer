@@ -14,6 +14,7 @@ abstract class Configuration
 {
     const ConfigurationFile = "configuration.json";
     private static $configuration;
+    public static $environment;
 
     //Read the JSON config file
     static function load()
@@ -23,6 +24,7 @@ abstract class Configuration
             if($data = file_get_contents(PATH."app\core\config\\".Configuration::ConfigurationFile))
             {
                 self::$configuration = json_decode($data,true);
+                self::$environment = self::get("layer/environment");
             }
         }
     }
@@ -33,7 +35,7 @@ abstract class Configuration
     }
 
     //Retrieve data from config
-    static function get($keys = "")
+    static function get($keys = "", $throwException = true)
     {
         $subArr = self::$configuration;
         if(self::$configuration != null)
@@ -43,7 +45,13 @@ abstract class Configuration
                 if(array_key_exists($k,$subArr))
                 {
                     $subArr = $subArr[$k];
-                }else throw new Exception("Une erreur de configuration est survenue ! ",HttpHeaders::InternalServerError);
+                } else {
+                    if ($throwException) {
+                        throw new Exception("Une erreur de configuration est survenue ! ", HttpHeaders::InternalServerError);
+                    } else {
+                        return null;
+                    }
+                }
             }
         }
         return $subArr;
