@@ -24,9 +24,10 @@ class Logger
                 $log = $template ?? Configuration::get("layer/logTemplate");
                 $date = date('Y-m-d');
                 $log = str_replace("{request_datetime}", date('Y-m-d H:i:s', self::$request->getRequestTime()), $log);
-                $log = str_replace("{request_time}", date('H:i:s', self::$request->getRequestTime()), $log);
+                $log = str_replace("{request_time}", date('H:i:s.v', self::$request->getRequestTime()), $log);
                 $log = str_replace("{request_date}", date('Y-m-d', self::$request->getRequestTime()), $log);
                 $log = str_replace("{client_ip}", self::$request->getClientIp(), $log);
+                $log = str_replace('{client_browser}', self::$request->getBrowser(), $log);
                 $log = str_replace("{client_port}", self::$request->getClientPort(), $log);
                 $log = str_replace("{request_method}", self::$request->getRequestMethod(), $log);
                 $log = str_replace("{request_resource}", self::$request->getFullUrl(), $log);

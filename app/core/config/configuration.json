@@ -30,7 +30,7 @@
   },
   "layer" : {
       "environment" : "dev",
-      "logTemplate" : "[{request_datetime}][{client_ip}][{request_method}:{request_resource}]:{message}",
+      "logTemplate" : "[{request_datetime}][{client_ip} {client_browser}][{request_method} {request_resource}]:{message}",
       "logFolder" : "logs",
       "dev": {
         "buildRoutesMap": true,

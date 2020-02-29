@@ -31,10 +31,9 @@ class Response
         $this->data = [];
     }
 
-
-    public function putHeader(IHttpHeaders $key, $value)
+    public function putHeader($key, $value)
     {
-        $headers[$key] = $value;
+        $this->headers[$key] = $value;
     }
 
     public function getHeaders()

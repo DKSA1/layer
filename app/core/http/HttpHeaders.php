@@ -12,7 +12,7 @@ namespace layer\core\http;
 class HttpHeaders implements IHttpCodes
 {
 
-    static function ResponseHeader($code,$newLocation = null){
+    static function ResponseHeader($code, $newLocation = null){
         switch ($code){
             case(self::OK): self::OK(); break;
             case(self::MovedPermanently): self::MovedPermanently($newLocation); break;

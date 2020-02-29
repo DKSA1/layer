@@ -11,6 +11,7 @@ use layer\core\config\Configuration;
 use layer\core\exception\ForwardException;
 use layer\core\http\HttpHeaders;
 use Exception;
+use layer\core\http\IHttpHeaders;
 use layer\core\http\Request;
 use layer\core\http\Response;
 use layer\core\mvc\controller\Controller;
@@ -55,6 +56,8 @@ class Router {
     private $urlParts;
 
     private $isApiUrlCall;
+
+    private $baseUrl;
 
     private function __construct(){
         $this->request = new Request();
@@ -324,7 +327,7 @@ class Router {
     public function handleRequest($baseUrl = null) {
         try {
             $baseUrl = $baseUrl ?? $this->request->getBaseUrl();
-
+            $this->baseUrl = $baseUrl;
             $this->isApiUrlCall = false;
 
             $this->urlParts = explode('/', trim(strtolower($baseUrl), '/'));
@@ -349,6 +352,8 @@ class Router {
             }
         }catch(ForwardException $e) {
             Logger::write("[".$e->getForwardHttpCode()."] Forwarding request to new location: ".$e->getForwardLocation());
+            $this->response->putHeader(IHttpHeaders::Location, "/".$this->request->getApp()."/".$e->getForwardLocation());
+            $this->response->setResponseCode($e->getForwardHttpCode());
             $this->handleRequest($e->getForwardLocation());
         }catch(Exception $e) {
             $this->handleError($e);
@@ -533,6 +538,8 @@ class Router {
 
     private function sendResponse() {
         HttpHeaders::ResponseHeader($this->response->getResponseCode());
+
+        header("X-Powered-By: Hello there");
 
         foreach ($this->response->getHeaders() as $h => $v) {
             header($h.":".$v, true, $this->response->getResponseCode());

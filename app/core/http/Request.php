@@ -8,9 +8,6 @@
 
 namespace layer\core\http;
 
-
-use http\Url;
-
 class Request
 {
     /**
@@ -61,14 +58,23 @@ class Request
      * @var int
      */
     private $request_time;
-    // TODO : add browser name detection
     /**
      * @var string
      */
-    private $client_browser;
+    private $browser;
+    /**
+     * @var string
+     */
+    private $host;
+    /**
+     * @var string
+     */
+    private $app;
 
     public function __construct()
     {
+        $this->app = trim(dirname($_SERVER['SCRIPT_NAME']),'/');
+        $this->host = $_SERVER['HTTP_HOST'];
         $this->base_url = $_REQUEST['url'];
         $this->full_url = $_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI'];
         $this->request_method = $_SERVER['REQUEST_METHOD'];
@@ -81,6 +87,24 @@ class Request
         $this->request_data = array_merge($_GET, $_POST);
         $this->isHttps = (((isset($_SERVER['HTTPS'])) && (strtolower($_SERVER['HTTPS']) == 'on')) || ((isset($_SERVER['HTTP_X_FORWARDED_PROTO'])) && (strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) == 'https')));
         $this->isAsynchronousRequest = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
+        $ua = strtolower($_SERVER['HTTP_USER_AGENT']);
+        if(strpos($ua, 'chrome/')) {
+            if(strpos($ua, 'safari/')) {
+                if(strpos($ua, 'opr/')) {
+                    $this->browser = 'Opera';
+                } else if(strpos($ua, 'edge/')) {
+                    $this->browser = 'Edge';
+                } else {
+                    $this->browser = 'Chrome';
+                }
+            }
+        } else if(strpos($ua, 'safari/')) {
+            $this->browser = 'Safari';
+        } else if(strpos($ua, 'firefox/')) {
+            $this->browser = 'Firefox';
+        } else if(strpos($ua, 'msie/')) {
+            $this->browser = 'Internet Explorer';
+        }
     }
 
     /**
@@ -130,6 +154,9 @@ class Request
         return setcookie($key, $value, $time, $path);
     }
 
+    /**
+     * @param $key string
+     */
     public function removeCookie($key)
     {
         if(isset($_COOKIE[$key]))
@@ -319,5 +346,28 @@ class Request
         return $this->request_time;
     }
 
+    /**
+     * @return mixed
+     */
+    public function getHost()
+    {
+        return $this->host;
+    }
+
+    /**
+     * @return string
+     */
+    public function getApp(): string
+    {
+        return $this->app;
+    }
+
+    /**
+     * @return string
+     */
+    public function getBrowser(): string
+    {
+        return $this->browser;
+    }
 
 }

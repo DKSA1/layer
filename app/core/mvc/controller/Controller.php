@@ -77,27 +77,11 @@ abstract class Controller {
 
     /**
      * @param string $internalUrl
-     * @param bool $temporarilyMoved
+     * @param int $httpCode
      * @throws ForwardException
      */
-    protected final function forward($internalUrl, $temporarilyMoved = true){
-        if($temporarilyMoved) {
-            $this->response->setResponseCode(HttpHeaders::MovedTemporarily);
-        } else {
-            $this->response->setResponseCode(HttpHeaders::MovedPermanently);
-        }
-        throw new ForwardException($this->response->getResponseCode(), $internalUrl);
-        // Router::getInstance()->handleRequest($internalUrl);
-        // TODO : throw exception forwardException
-        //check if controller was already instanciated
-        /*$c = Router::getInstance()->getInstancedController($controller);
-        if(!$controller){
-            $path = APP_SERVICE . basename($controller) . ".php";
-            if(file_exists($path)){
-                $controller = new \ReflectionClass($controller);
-                $c = $controller->newInstance();
-            }else throw new Exception("Redirection interne échouée",HttpHeaders::InternalServerError);
-        }*/
+    protected final function forward($internalUrl, $httpCode = HttpHeaders::MovedTemporarily){
+        throw new ForwardException($httpCode, $internalUrl);
     }
 
     protected final function redirect($url, $timeout = 0) {
