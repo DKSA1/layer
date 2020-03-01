@@ -16,21 +16,18 @@ use layer\core\http\Response;
 use layer\core\mvc\model\ViewModel;
 use layer\core\Router;
 use Exception;
+use layer\core\utils\Logger;
 
 abstract class Controller {
 
-    //request
     /**
      * @var Request $request
      */
     protected $request;
-
-
     /**
      * @var Response $response
      */
     protected $response;
-
     /**
      * Controller constructor.
      */
@@ -39,41 +36,7 @@ abstract class Controller {
 
     }
 
-    /*
-     Méthode abstraite correspondant à l'action par défaut
-     Oblige les classes dérivées à implémenter cette action par défaut
-    */
     public abstract function index();
-
-    // Génère la vue associée au contrôleur courant
-    protected final function genererateView($donneesVue = array(), $usePartials = true){
-        // Détermination du nom du fichier vue à partir du nom du contrôleur actuel
-        $classeControleur = get_class($this);
-        $classeControleur = explode("\\",$classeControleur);
-        $classeControleur = $classeControleur[count($classeControleur)-1];
-        $classeControleur = str_replace("Controller","",$classeControleur);
-        //var_dump($_SERVER);
-        // instanciation de la vue
-        $vue = new ViewModel(trim(str_replace("Controller","",$classeControleur)),$this->action);
-
-        if($usePartials == true){
-            //toutes les vues
-            $arrBefore = Configuration::get("defaults/partial/action/before");
-            $vue->addIntroViews($arrBefore);
-            $arrAfter = Configuration::get("defaults/partial/action/after");
-            $vue->addFinalViews($arrAfter);
-
-        }else if(is_array($usePartials) && array_key_exists("before",$usePartials) && array_key_exists("after",$usePartials) ){
-            //vues spécifiques
-            $vue->addIntroViews($usePartials["before"]);
-            $vue->addFinalViews($usePartials["after"]);
-        }
-
-        //title page
-        if(!defined("APP_VIEW_TITLE")) define("APP_VIEW_TITLE",$classeControleur);
-        // lancement de la vue
-        return $vue->generer($donneesVue);
-    }
 
     /**
      * @param string $internalUrl
@@ -81,12 +44,13 @@ abstract class Controller {
      * @throws ForwardException
      */
     protected final function forward($internalUrl, $httpCode = HttpHeaders::MovedTemporarily){
+        Logger::write("[".$httpCode."] Forwarding request to new location: ".$internalUrl);
         throw new ForwardException($httpCode, $internalUrl);
     }
 
     protected final function redirect($url, $timeout = 0) {
-        //header('Location: http://www.google.com/');
+        Logger::write(' Redirecting to '.$url);
         header( "refresh:".$timeout.";url=".$url);
+        exit();
     }
-
 }

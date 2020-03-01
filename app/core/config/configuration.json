@@ -30,14 +30,20 @@
   },
   "layer" : {
       "environment" : "dev",
-      "logTemplate" : "[{request_datetime}][{client_ip} {client_browser}][{request_method} {request_resource}]:{message}",
+      "logTemplate" : "[{request_datetime}][{environment}][{client_ip} {client_browser}][{request_method} {request_resource}]:{message}",
       "logFolder" : "logs",
       "dev": {
+        "log": true,
+        "logFolder": "logs",
+        "logTemplate": "",
         "buildRoutesMap": true,
         "buildRelationalMap": false,
         "buildSharedMap": true
       },
       "prod": {
+        "log": true,
+        "logFolder": "logs",
+        "logTemplate": "",
         "buildRoutesMap": false,
         "buildRelationalMap": false,
         "buildSharedMap": false

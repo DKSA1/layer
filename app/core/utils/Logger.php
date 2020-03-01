@@ -19,6 +19,7 @@ class Logger
     public static $response;
 
     static function write($message, $template = NULL) {
+        // TODO : check if logs are enable in this env
         if(self::$response && self::$request) {
             try {
                 $log = $template ?? Configuration::get("layer/logTemplate");
@@ -27,10 +28,11 @@ class Logger
                 $log = str_replace("{request_time}", date('H:i:s.v', self::$request->getRequestTime()), $log);
                 $log = str_replace("{request_date}", date('Y-m-d', self::$request->getRequestTime()), $log);
                 $log = str_replace("{client_ip}", self::$request->getClientIp(), $log);
-                $log = str_replace('{client_browser}', self::$request->getBrowser(), $log);
+                $log = str_replace('{client_browser}', self::$request->getClientBrowser(), $log);
                 $log = str_replace("{client_port}", self::$request->getClientPort(), $log);
                 $log = str_replace("{request_method}", self::$request->getRequestMethod(), $log);
                 $log = str_replace("{request_resource}", self::$request->getFullUrl(), $log);
+                $log = str_replace("{environment}", Configuration::$environment, $log);
                 $log = str_replace("{message}", $message, $log);
                 $log .= PHP_EOL;
                 if(!file_exists(Configuration::get("layer/logFolder"))) {

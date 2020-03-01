@@ -61,7 +61,11 @@ class Request
     /**
      * @var string
      */
-    private $browser;
+    private $clientBrowser;
+    /**
+     * @var string
+     */
+    private $clientOS;
     /**
      * @var string
      */
@@ -91,19 +95,19 @@ class Request
         if(strpos($ua, 'chrome/')) {
             if(strpos($ua, 'safari/')) {
                 if(strpos($ua, 'opr/')) {
-                    $this->browser = 'Opera';
+                    $this->clientBrowser = 'Opera';
                 } else if(strpos($ua, 'edge/')) {
-                    $this->browser = 'Edge';
+                    $this->clientBrowser = 'Edge';
                 } else {
-                    $this->browser = 'Chrome';
+                    $this->clientBrowser = 'Chrome';
                 }
             }
         } else if(strpos($ua, 'safari/')) {
-            $this->browser = 'Safari';
+            $this->clientBrowser = 'Safari';
         } else if(strpos($ua, 'firefox/')) {
-            $this->browser = 'Firefox';
+            $this->clientBrowser = 'Firefox';
         } else if(strpos($ua, 'msie/')) {
-            $this->browser = 'Internet Explorer';
+            $this->clientBrowser = 'Internet Explorer';
         }
     }
 
@@ -365,9 +369,9 @@ class Request
     /**
      * @return string
      */
-    public function getBrowser(): string
+    public function getClientBrowser(): string
     {
-        return $this->browser;
+        return $this->clientBrowser;
     }
 
 }

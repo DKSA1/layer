@@ -8,7 +8,6 @@
 
 namespace layer\core\http;
 
-
 class Response
 {
     /***
@@ -23,6 +22,8 @@ class Response
     private $headers;
 
     private $data;
+
+    private $responseTime;
 
     public function __construct()
     {
@@ -50,7 +51,7 @@ class Response
         return $this->response_code;
     }
 
-    public function setData($key, $value) {
+    public function putData($key, $value) {
         $this->data[$key] = $value;
     }
 
@@ -68,6 +69,21 @@ class Response
 
     public function getContent() {
         return $this->content;
+    }
+
+    public function getResponseTime()
+    {
+        return $this->responseTime;
+    }
+
+    public function sendResponse() {
+        HttpHeaders::ResponseHeader($this->getResponseCode());
+        header("X-Powered-By: Hello there");
+        foreach ($this->getHeaders() as $h => $v) {
+            header($h.":".$v, true, $this->getResponseCode());
+        }
+        echo $this->getContent();
+        $this->responseTime = microtime(true);
     }
 
 }

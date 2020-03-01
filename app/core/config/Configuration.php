@@ -30,7 +30,7 @@ abstract class Configuration
     }
 
     //TODO : validation config file
-    static function checkConfigFile() {
+    private static function checkConfigFile() {
 
     }
 

@@ -5,3 +5,14 @@ logs/
 app/services/
 robots.txt
 sitemap.xml
+app/models/
+
+app/core/config/relational_map.json
+
+app/core/config/routes_map.json
+
+app/core/config/shared.json
+
+public/
+
+app/core/config/routes.json

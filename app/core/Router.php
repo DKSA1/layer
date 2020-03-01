@@ -18,6 +18,8 @@ use layer\core\mvc\controller\Controller;
 use layer\core\mvc\controller\ErrorController;
 use layer\core\mvc\filter\Filter;
 use layer\core\mvc\model\ViewModel;
+use layer\core\mvc\view\Layout;
+use layer\core\mvc\view\View;
 use layer\core\utils\Logger;
 
 class Router {
@@ -106,6 +108,8 @@ class Router {
 
     private function buildRoutesMap()
     {
+        $routesTemplate = [];
+
         $this->shared = [
             "filters" => [],
             "view" => [],
@@ -225,6 +229,8 @@ class Router {
                                                 "parameters" => $parameters
                                             ];
 
+
+                                            $routesTemplate["/".$controllerName.'/'.$actionName."/"] = $this->routes[$controllerName]['namespace']."@".$reflectionMethod->name;
                                         }
                                     }
                                 }
@@ -313,6 +319,8 @@ class Router {
 
         }
 
+        file_put_contents("./app/core/config/routes.json", json_encode($routesTemplate, JSON_PRETTY_PRINT));
+
         $file = fopen("./app/core/config/routes_map.json", "w") or die("cannot write in routes_map.json file");
         $json_string = json_encode($this->routes, JSON_PRETTY_PRINT);
         fwrite($file, $json_string);
@@ -324,7 +332,28 @@ class Router {
         fclose($file);
     }
 
-    public function handleRequest($baseUrl = null) {
+    public function CORS() {
+        if (isset($_SERVER['HTTP_ORIGIN'])) {
+            // origin you want to allow, and if so:
+            header("Access-Control-Allow-Origin: {$_SERVER['HTTP_ORIGIN']}");
+            header('Access-Control-Allow-Credentials: true');
+            header('Access-Control-Max-Age: 86400');
+        } else {
+            // No HTTP_ORIGIN set, so we allow any. You can disallow if needed here
+            header("Access-Control-Allow-Origin: *");
+        }
+        // Access-Control headers are received during OPTIONS requests
+        if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+            if (isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD']))
+                // may also be using PUT, PATCH, HEAD etc
+                header("Access-Control-Allow-Methods: POST, GET, OPTIONS, DELETE, PUT");
+            if (isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_HEADERS']))
+                header("Access-Control-Allow-Headers: {$_SERVER['HTTP_ACCESS_CONTROL_REQUEST_HEADERS']}");
+            exit(0);
+        }
+    }
+
+    public function handleRequest($baseUrl = null) : Response {
         try {
             $baseUrl = $baseUrl ?? $this->request->getBaseUrl();
             $this->baseUrl = $baseUrl;
@@ -338,7 +367,7 @@ class Router {
                     array_shift($this->urlParts);
                 }
                 if (isset($this->urlParts[0]) && array_key_exists($this->urlParts[0], $this->routes)) {
-                    $this->initController($this->routes[$this->urlParts[0]]);
+                    return $this->initController($this->routes[$this->urlParts[0]]);
                 } else {
                     // route not found
                     throw new Exception("Route not found", HttpHeaders::NotFound);
@@ -346,21 +375,20 @@ class Router {
             } else if (array_key_exists("", $this->routes)) {
                 // root controller & actions
                 $routeMetaData = $this->routes[""];
-                $this->initController($routeMetaData);
+                return $this->initController($routeMetaData);
             } else {
                 throw new Exception("Default route not found", HttpHeaders::NotFound);
             }
         }catch(ForwardException $e) {
-            Logger::write("[".$e->getForwardHttpCode()."] Forwarding request to new location: ".$e->getForwardLocation());
             $this->response->putHeader(IHttpHeaders::Location, "/".$this->request->getApp()."/".$e->getForwardLocation());
             $this->response->setResponseCode($e->getForwardHttpCode());
-            $this->handleRequest($e->getForwardLocation());
+            return $this->handleRequest($e->getForwardLocation());
         }catch(Exception $e) {
-            $this->handleError($e);
+            return $this->handleError($e);
         }
     }
 
-    private function handleError(Exception $e) {
+    private function handleError(Exception $e): Response {
         $method = 'index';
         $controllerMetaData = null;
         $actionName = null;
@@ -398,22 +426,31 @@ class Router {
 
         $controller->$method();
 
+        error_reporting(E_USER_WARNING);
         if($controllerMetaData && $controllerMetaData['actions'][$actionName]['view_name']) {
-            // todo : only key exists
-            $viewModel = new ViewModel(dirname($controllerMetaData['path']), $controllerMetaData['actions'][$actionName]['view_name']);
-            if ($layoutName = $controllerMetaData['actions'][$actionName]['layout_name']) {
-                $arrBefore = Configuration::get("layouts/$layoutName/before");
-                $viewModel->addIntroViews($arrBefore);
-                $arrAfter = Configuration::get("layouts/$layoutName/after");
-                $viewModel->addFinalViews($arrAfter);
-            }
-            $this->response->setContent($viewModel->generer($this->response->getData()));
+            $layoutName = $controllerMetaData['actions'][$actionName]['layout_name'];
+            $viewTemplate = dirname($controllerMetaData['path'])."/view/".$controllerMetaData['actions'][$actionName]['view_name'].".php";
+            $this->generateLayout($layoutName, $viewTemplate);
         } else {
             $this->response->setContent(json_encode($this->response->getData()));
         }
 
-        $this->sendResponse();
+        return $this->response;
+    }
 
+    private function generateLayout($layoutName, $viewTemplate) {
+        $layout = new Layout($layoutName);
+        foreach (Configuration::get("layouts/$layoutName/before") as $viewName) {
+            $view = new View($this->shared['view'][$viewName]);
+            $layout->appendView($view);
+        }
+        $main = new View($viewTemplate);
+        $layout->appendView($main);
+        foreach (Configuration::get("layouts/$layoutName/after") as $viewName) {
+            $view = new View($this->shared['view'][$viewName]);
+            $layout->appendView($view);
+        }
+        $this->response->setContent($layout->render($this->response->getData()));
     }
 
     private function applyFilters($names) {
@@ -439,10 +476,9 @@ class Router {
         }
     }
 
-    private function initController($routeMetaData) {
+    private function initController($routeMetaData): Response {
         if (array_key_exists('forward', $routeMetaData)) {
-            $this->initController($this->routes[$routeMetaData['forward']]);
-            return;
+            return $this->initController($this->routes[$routeMetaData['forward']]);
         }
         if (file_exists($routeMetaData['path'])) {
             // controller filters enter
@@ -452,14 +488,14 @@ class Router {
             if(isset($this->urlParts[0])) {
                 // actions
                 if(array_key_exists($this->urlParts[0], $routeMetaData['actions'])) {
-                    $this->initAction($routeMetaData, $routeMetaData['actions'][$this->urlParts[0]]);
+                    return $this->initAction($routeMetaData, $routeMetaData['actions'][$this->urlParts[0]]);
                 } else {
                     // action not found
                     throw new Exception("Action not found",HttpHeaders::NotFound);
                 }
             } else if(isset($routeMetaData['actions'][''])) {
                 $this->urlParts[0] = '';
-                $this->initAction($routeMetaData, $routeMetaData['actions'][$this->urlParts[0]]);
+                return $this->initAction($routeMetaData, $routeMetaData['actions'][$this->urlParts[0]]);
             } else {
                 // no default action
                 throw new Exception("Action not found",HttpHeaders::NotFound);
@@ -471,10 +507,9 @@ class Router {
         }
     }
 
-    private function initAction($routeMetaData, $actionMetaData) {
+    private function initAction($routeMetaData, $actionMetaData): Response {
         if (array_key_exists('forward', $actionMetaData)) {
-            $this->initAction($routeMetaData, $routeMetaData['actions'][$actionMetaData['forward']]);
-            return;
+            return $this->initAction($routeMetaData, $routeMetaData['actions'][$actionMetaData['forward']]);
         }
         if(in_array(strtolower($this->request->getRequestMethod()), $actionMetaData['request_methods'])) {
             $reflectionController = new \ReflectionClass($routeMetaData['namespace']);
@@ -509,48 +544,25 @@ class Router {
                 $reflectionMethod = $reflectionController->getMethod($method);
                 $reflectionMethod->invokeArgs($controller, $actionParameters);
 
-                if(!$this->isApiUrlCall && $actionMetaData['view_name']) {
-                    $viewModel = new ViewModel(dirname($routeMetaData['path']), $actionMetaData['view_name']);
-                    if ($layoutName = $actionMetaData['layout_name']) {
-                        $arrBefore = Configuration::get("layouts/$layoutName/before");
-                        $viewModel->addIntroViews($arrBefore);
-                        $arrAfter = Configuration::get("layouts/$layoutName/after");
-                        $viewModel->addFinalViews($arrAfter);
-                    }
-                    $this->response->setContent($viewModel->generer($this->response->getData()));
-                } else {
-                    $this->response->setContent(json_encode($this->response->getData()));
-                }
-
-
                 // action filters leave
                 $this->applyFilters($actionMetaData['filters_name']);
                 // controller filters leave
                 $this->applyFilters($routeMetaData['filters_name']);
 
-                $this->sendResponse();
+                if(!$this->isApiUrlCall && $actionMetaData['view_name']) {
+                    $layoutName = $actionMetaData['layout_name'];
+                    $viewTemplate = dirname($routeMetaData['path'])."/view/".$actionMetaData['view_name'].".php";
+                    $this->generateLayout($layoutName, $viewTemplate);
+                } else {
+                    $this->response->setContent(json_encode($this->response->getData()));
+                }
+
+                return $this->response;
             }
         } else {
             // method not allowed
             throw new Exception("Method not allowed",HttpHeaders::BadRequest);
         }
-    }
-
-    private function sendResponse() {
-        HttpHeaders::ResponseHeader($this->response->getResponseCode());
-
-        header("X-Powered-By: Hello there");
-
-        foreach ($this->response->getHeaders() as $h => $v) {
-            header($h.":".$v, true, $this->response->getResponseCode());
-        }
-
-        echo $this->response->getContent();
-
-        $d = new \DateTime();
-        $d->setTimestamp((microtime(true) - $this->request->getRequestTime()));
-
-        Logger::write("[".$this->response->getResponseCode()."] Serving content in ".$d->format('s.u')." ms");
     }
 
     /**

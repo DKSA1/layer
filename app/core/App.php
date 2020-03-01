@@ -10,10 +10,12 @@ namespace layer\core;
 
 use layer\core\config\Configuration;
 use layer\core\persistence\EntityBuilder;
+use layer\core\utils\Logger;
 
 
 class App
 {
+    private $startTime;
     /**
      * @var App $instance
      */
@@ -36,17 +38,27 @@ class App
 
     private function __construct()
     {
+        $this->startTime = microtime(true);
+
         define("PATH",rtrim($_SERVER['SCRIPT_FILENAME'],"index.php"));
 
         Configuration::load();
 
-        $this->router = Router::getInstance();
-
         $this->registerGlobals();
 
+        $this->router = Router::getInstance();
+
         $this->builder = EntityBuilder::getInstance();
-        //process
-        $this->router->handleRequest();
+
+        $this->router->CORS();
+
+        $response = $this->router->handleRequest();
+
+        $response->sendResponse();
+
+        $d = new \DateTime();
+        $d->setTimestamp($response->getResponseTime() - $this->startTime);
+        Logger::write("[".$response->getResponseCode()."] Serving content in ".$d->format('s.u')." ms");
     }
 
     private function registerGlobals(){
