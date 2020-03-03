@@ -66,8 +66,10 @@ class Router {
         $this->response = new Response();
         Logger::$request = $this->request;
         Logger::$response = $this->response;
-        if(Configuration::get('layer')[Configuration::$environment]["buildRoutesMap"] || !($this->loadRoutesMap() && $this->loadShared())) {
-            $this->buildRoutesMap();
+        if(Configuration::get('environment/'.Configuration::$environment.'/buildRoutesMap') || !($this->loadRoutesMap() && $this->loadShared())) {
+            $this->discoverRoutes();
+            $this->buildSharedMap();
+            // $this->buildRoutesMap();
         }
     }
 
@@ -103,7 +105,221 @@ class Router {
     }
 
     private function buildSharedMap() {
-        // TODO : implement this
+        $this->shared = [
+            "filters" => [],
+            "view" => []
+        ];
+        $sharedFolder = Configuration::get("locations/shared");
+
+        $allFiles = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($sharedFolder));
+        $phpFiles = new \RegexIterator($allFiles, '/\.php$/');
+
+        if(count($phpFiles)) {
+            require_once PATH."app/core/mvc/annotation/MVCAnnotations.php";
+        }
+
+        $filtersStr = null;
+        $filtersFile = [];
+        foreach ($phpFiles as $phpFile) {
+            if (stripos($phpFile,"\\view\\") > -1) {
+                $this->shared['view'][str_replace(".php", "", basename($phpFile))] = trim($phpFile);
+            } else if(stripos($phpFile, "\\filters\\") > -1) {
+                require_once $phpFile;
+                if($filtersStr) {
+                    $filtersStr .= '|';
+                }
+                $filtersStr .= rtrim(basename($phpFile), '.php');
+                $filtersFile[rtrim(basename($phpFile), '.php')] = trim($phpFile);
+            }
+        }
+
+        $filtersNamespace = preg_grep("/($filtersStr)/", get_declared_classes());
+
+        foreach ($filtersNamespace as $fNamespace) {
+                $reflectionClass = new \ReflectionAnnotatedClass($fNamespace);
+                if($reflectionClass->isSubclassOf(Filter::class)) {
+                    $filterAnnotation = $reflectionClass->getAnnotation("Filter");
+                    if($filterAnnotation) {
+                        if($filterAnnotation->mapped) {
+                            if($filterAnnotation->verifyName()) {
+                                $filterName = strtolower($filterAnnotation->name);
+                            } else {
+                                $filterName = strtolower(str_replace("Filter", "", str_replace(".php", "", basename($fNamespace))));
+                            }
+                            if(!array_key_exists($filterName, $this->shared['filters'])) {
+                                $this->shared['filters'][strtolower($filterName)] = [
+                                    "namespace" => $reflectionClass->name,
+                                    "path" => $filtersFile[basename($fNamespace)]
+                                ];
+                            }
+                        }
+
+                    }
+                }
+        }
+
+        file_put_contents('app/core/config/shared2.json', json_encode($this->shared, JSON_PRETTY_PRINT));
+    }
+
+    private function discoverRoutes() {
+        $this->routes = [];
+        $servicesFolder = Configuration::get("locations/services");
+
+        $allFiles = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($servicesFolder));
+        $phpFiles = new \RegexIterator($allFiles, '/\.*controller.*.php$/i');
+
+        if(count($phpFiles)) {
+            require_once PATH."app/core/mvc/annotation/MVCAnnotations.php";
+        }
+
+        $controllersStr = null;
+        $controllersFile = [];
+        foreach ($phpFiles as $phpFile) {
+            require_once $phpFile;
+            if($controllersStr) {
+                $controllersStr .= '|';
+            }
+            $controllersStr .= rtrim(basename($phpFile), '.php');
+            $controllersFile[rtrim(basename($phpFile), '.php')] = trim($phpFile);
+        }
+
+        $controllersNamespace = preg_grep("/($controllersStr)/", get_declared_classes());
+
+        foreach ($controllersNamespace as $cNamespace) {
+            $reflectionController = new \ReflectionAnnotatedClass($cNamespace);
+            if($reflectionController->isSubclassOf(Controller::class) && !$reflectionController->getAnnotation('ErrorController')) {
+
+                /**
+                 * @var \Controller|\DefaultController $actionAnnotation
+                 */
+                $controllerAnnotation = $reflectionController->getAnnotation("Controller");
+                if(!$controllerAnnotation)
+                    $controllerAnnotation = $reflectionController->getAnnotation("DefaultController");
+
+                if($controllerAnnotation && $controllerAnnotation->mapped) {
+                    $controllerRouteTemplate = trim($controllerAnnotation->verifyRouteTemplate() ?? str_replace("controller", "", strtolower(basename($cNamespace))), '/');
+                    $controllerLayoutTemplate = Configuration::get('layouts/'.$controllerAnnotation->layoutName, false) ? $controllerAnnotation->layoutName : null;
+                    $controllerFilters = array_map('strtolower', $controllerAnnotation->filters);
+
+                    $this->routes[$controllerRouteTemplate] = [
+                        "namespace" => $cNamespace,
+                        "path" => trim($controllersFile[basename($cNamespace)]),
+                        "filters_name" => $controllerFilters,
+                        "actions" => []
+                    ];
+                    /**
+                     * @var \ReflectionAnnotatedMethod $reflectionMethod
+                     */
+                    foreach ($reflectionController->getMethods() as $reflectionMethod) {
+                        if ($reflectionMethod->isPublic() && $reflectionMethod->hasAnnotation('Action')) {
+                            /**
+                             * @var \Action $actionAnnotation
+                             */
+                            $actionAnnotation = $reflectionMethod->getAnnotation('Action');
+                            if($actionAnnotation->mapped) {
+                                $actionRouteTemplate = trim($actionAnnotation->verifyRouteTemplate() ?? strtolower($reflectionMethod->name), '/');
+                                $actionLayoutTemplate = $actionAnnotation->layoutName ?? $controllerLayoutTemplate;
+                                $actionLayoutTemplate = Configuration::get('layouts/'.$actionLayoutTemplate, false) ? $actionLayoutTemplate : null;
+                                $actionFilters = array_diff(array_map("strtolower", $actionAnnotation->filters), $controllerFilters);
+                                $actionView = $actionAnnotation->viewName ? $actionAnnotation->viewName : $reflectionMethod->name;
+                                // TODO : check if file exists in shared
+                                $actionView = file_exists(dirname($controllersFile[basename($cNamespace)])."/view/$actionView.php") ? $actionView : null;
+
+                                $actionParameters = [];
+                                /**
+                                 * @var \ReflectionParameter $reflectionParameter
+                                 */
+                                foreach ($reflectionMethod->getParameters() as $reflectionParameter) {
+                                    $actionParameters[$reflectionParameter->getPosition()] = [
+                                        "name" => $reflectionParameter->getName(),
+                                        "required" => !$reflectionParameter->isOptional(),
+                                        "default" => $reflectionParameter->isDefaultValueAvailable() ? $reflectionParameter->getDefaultValue() : null,
+                                        "allows_null" => $reflectionParameter->allowsNull(),
+                                        "type" => $reflectionParameter->hasType() ? $reflectionParameter->getType()."" : null
+                                    ];
+                                }
+
+                                $this->routes[$controllerRouteTemplate]['actions'][$actionRouteTemplate] = [
+                                    "method_name" => $reflectionMethod->name,
+                                    "request_methods" => $actionAnnotation->verifyMethods(),
+                                    "filters_name" => $actionFilters,
+                                    "view_name" => $actionView,
+                                    "layout_name" => $actionLayoutTemplate,
+                                    "parameters" => $actionParameters
+                                ];
+                            }
+                        }
+                    }
+
+                    if(array_key_exists($controllerAnnotation->defaultAction, $this->routes[$controllerRouteTemplate]['actions'])) {
+                        $this->routes[$controllerRouteTemplate]["actions"][""] = ['forward' => $controllerAnnotation->defaultAction];
+                    }
+
+                    if($reflectionController->hasAnnotation('DefaultController')) {
+                        $this->routes[''] = [
+                            "forward" => $controllerRouteTemplate
+                        ];
+                    }
+
+
+                }
+            } else if($reflectionController->isSubclassOf(ErrorController::class) && $reflectionController->hasAnnotation('ErrorController')) {
+                /***
+                 * @var $eControllerAnnotation \ErrorController
+                 */
+                $eControllerAnnotation = $reflectionController->getAnnotation('ErrorController');
+
+                $this->routes['*'] = [
+                    "namespace" => $cNamespace,
+                    "path" => trim($controllersFile[basename($cNamespace)]),
+                    "actions" => []
+                ];
+
+                $controllerLayoutTemplate = Configuration::get('layouts/'.$eControllerAnnotation->layoutName, false) ? $eControllerAnnotation->layoutName : null;
+                /**
+                 * @var \ReflectionAnnotatedMethod $reflectionMethod
+                 */
+                foreach ($reflectionController->getMethods() as $reflectionMethod) {
+                    if ($reflectionMethod->isPublic() && $reflectionMethod->hasAnnotation('ErrorAction')) {
+                        /**
+                         * @var $eActionAnnotation \ErrorAction
+                         */
+                        $eActionAnnotation = $reflectionMethod->getAnnotation("ErrorAction");
+                        if($eActionAnnotation->mapped) {
+                            if(count($eActionAnnotation->errorCodes) > 0) {
+                                $actionName = $eActionAnnotation->errorCodes[0];
+                                $this->routes['*']['actions'][$actionName] = null;
+                                foreach ($eActionAnnotation->errorCodes as $routeName) {
+                                    if(!array_key_exists($routeName, $this->routes['*']['actions'])) {
+                                        $this->routes['*']['actions'][$routeName] = [
+                                            "forward" => $actionName
+                                        ];
+                                    }
+                                }
+                            } else {
+                                $actionName = $reflectionMethod->name;
+                            }
+                            if ($reflectionMethod->name == 'index') {
+                                $this->routes['*']["actions"][""] = $actionName;
+                            }
+
+                            $eActionView = $eActionAnnotation->viewName ? $eActionAnnotation->viewName : $reflectionMethod->name;
+                            $eActionView = file_exists(dirname($controllersFile[basename($cNamespace)])."/view/$eActionView.php") ? $eActionView : null;
+                            $eLayoutTemplate = $eActionAnnotation->layoutName ?? $controllerLayoutTemplate;
+                            $eLayoutTemplate = Configuration::get('layouts/'.$eLayoutTemplate, false) ? $eLayoutTemplate : null;
+
+                            $this->routes['*']['actions'][$actionName] = [
+                                "method_name" => $reflectionMethod->name,
+                                "view_name" => $eActionView,
+                                "layout_name" => $eActionView ?? $eLayoutTemplate
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+
+        file_put_contents('app/core/config/routes.json', json_encode($this->routes, JSON_PRETTY_PRINT));
     }
 
     private function buildRoutesMap()
@@ -230,6 +446,7 @@ class Router {
                                             ];
 
 
+                                            // TODO : remove this
                                             $routesTemplate["/".$controllerName.'/'.$actionName."/"] = $this->routes[$controllerName]['namespace']."@".$reflectionMethod->name;
                                         }
                                     }
@@ -319,7 +536,7 @@ class Router {
 
         }
 
-        file_put_contents("./app/core/config/routes.json", json_encode($routesTemplate, JSON_PRETTY_PRINT));
+        //file_put_contents("./app/core/config/routes.json", json_encode($routesTemplate, JSON_PRETTY_PRINT));
 
         $file = fopen("./app/core/config/routes_map.json", "w") or die("cannot write in routes_map.json file");
         $json_string = json_encode($this->routes, JSON_PRETTY_PRINT);

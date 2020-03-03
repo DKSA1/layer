@@ -24,14 +24,14 @@ abstract class Configuration
             if($data = file_get_contents(PATH."app\core\config\\".Configuration::ConfigurationFile))
             {
                 self::$configuration = json_decode($data,true);
-                self::$environment = self::get("layer/environment");
+                self::$environment = self::get("environment/current");
             }
         }
     }
 
     //TODO : validation config file
     private static function checkConfigFile() {
-
+        // check if key globals, environment, locations, layouts is present
     }
 
     //Retrieve data from config

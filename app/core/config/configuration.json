@@ -1,12 +1,4 @@
 {
-  "persistences" : {
-      "localhost" : {
-        "connectionString" : "mysql:host=localhost;root;;"
-      }
-  },
-  "cors" : {
-
-  },
   "layouts" : {
     "basic": {
       "before": ["header","navbar","breadcrumbs"],
@@ -19,34 +11,39 @@
         "app_author"  : "Loris Rossi",
         "app_description" : "MVC PHP Framework",
         "app_keywords"  :  ["test","test2","test3"],
-        "contact" : "loris.rossi@outlook.com",
-        "app" : "test45"
+        "contact" : "loris.rossi@outlook.com"
   },
-  "core" : {
+  "locations" : {
       "models" : "app/models",
       "services": "app/services",
+      "shared": "app/services/#shared",
       "libs": "app/vendor",
-      "public": "public"
+      "public": "public",
+      "logs": "logs"
   },
-  "layer" : {
-      "environment" : "dev",
-      "logTemplate" : "[{request_datetime}][{environment}][{client_ip} {client_browser}][{request_method} {request_resource}]:{message}",
-      "logFolder" : "logs",
+  "environment" : {
+      "current" : "dev",
       "dev": {
         "log": true,
-        "logFolder": "logs",
-        "logTemplate": "",
+        "logTemplate" : "[{request_datetime}][{environment}][{client_ip} {client_browser}][{request_method} {request_resource}]:{message}",
         "buildRoutesMap": true,
         "buildRelationalMap": false,
         "buildSharedMap": true
       },
       "prod": {
         "log": true,
-        "logFolder": "logs",
-        "logTemplate": "",
+        "logTemplate" : "[{request_datetime}][{environment}][{client_ip} {client_browser}][{request_method} {request_resource}]:{message}",
         "buildRoutesMap": false,
         "buildRelationalMap": false,
         "buildSharedMap": false
       }
+  },
+  "persistences" : {
+    "localhost" : {
+      "connectionString" : "mysql:host=localhost;root;;"
+    }
+  },
+  "cors" : {
+
   }
 }

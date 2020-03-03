@@ -38,6 +38,7 @@ class App
 
     private function __construct()
     {
+        // TRY CATCH APP
         $this->startTime = microtime(true);
 
         define("PATH",rtrim($_SERVER['SCRIPT_FILENAME'],"index.php"));
@@ -48,7 +49,7 @@ class App
 
         $this->router = Router::getInstance();
 
-        $this->builder = EntityBuilder::getInstance();
+        //$this->builder = EntityBuilder::getInstance();
 
         $this->router->CORS();
 

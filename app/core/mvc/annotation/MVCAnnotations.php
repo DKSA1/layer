@@ -12,7 +12,7 @@ class Filter extends Annotation
     public $mapped = true;
 
     public function verifyName() {
-        if(preg_match('/^[a-zA-Z0-9]{1,}$/',$this->name))
+        if(preg_match('/^[a-zA-Z0-9]+$/',$this->name))
                 return $this->name;
         else
                 return null;
@@ -22,6 +22,10 @@ class Filter extends Annotation
 /** @Target("class") */
 class Controller extends Annotation
 {
+    /**
+     * @var string
+     */
+    public $routeTemplate;
     /**
      * @var bool
      */
@@ -55,11 +59,22 @@ class Controller extends Annotation
         }
         return $routeNames;
     }
+
+    public function verifyRouteTemplate() {
+        if(preg_match('/^[a-zA-Z0-9]+$/', $this->routeTemplate)) {
+            return $this->routeTemplate;
+        }
+        return null;
+    }
 }
 
 /** @Target("method") */
 class Action extends Annotation
 {
+    /**
+     * @var string
+     */
+    public $routeTemplate;
     /**
      * @var string[]
      */
@@ -96,10 +111,17 @@ class Action extends Annotation
        return in_array(strtolower($method),$this->methods);
     }
 
+    public function verifyRouteTemplate() {
+        if(preg_match('/^[a-zA-Z0-9]+$/', $this->routeTemplate)) {
+            return $this->routeTemplate;
+        }
+        return null;
+    }
+
     public function verifyRouteNames() {
         $routeNames = [];
         foreach ($this->routeNames as $routeName) {
-            if(preg_match('/^[a-zA-Z0-9]{1,}$/',$routeName))
+            if(preg_match('/^[a-zA-Z0-9]+$/',$routeName))
                $routeNames[] = strtolower($routeName);
         }
         return $routeNames;

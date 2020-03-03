@@ -16,7 +16,7 @@ class ErrorController extends Controller
      */
     protected $error;
 
-    public function index(){
+    public function index() {
     }
 
 }
