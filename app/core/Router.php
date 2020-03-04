@@ -17,7 +17,6 @@ use layer\core\http\Response;
 use layer\core\mvc\controller\Controller;
 use layer\core\mvc\controller\ErrorController;
 use layer\core\mvc\filter\Filter;
-use layer\core\mvc\model\ViewModel;
 use layer\core\mvc\view\Layout;
 use layer\core\mvc\view\View;
 use layer\core\utils\Logger;
@@ -197,7 +196,7 @@ class Router {
                     $controllerAnnotation = $reflectionController->getAnnotation("DefaultController");
 
                 if($controllerAnnotation && $controllerAnnotation->mapped) {
-                    $controllerRouteTemplate = trim($controllerAnnotation->verifyRouteTemplate() ?? str_replace("controller", "", strtolower(basename($cNamespace))), '/');
+                    $controllerRouteTemplate = $controllerAnnotation->verifyRouteTemplate() ? trim($controllerAnnotation->verifyRouteTemplate(), '/') : str_replace("controller", "", strtolower(basename($cNamespace)));
                     $controllerLayoutTemplate = Configuration::get('layouts/'.$controllerAnnotation->layoutName, false) ? $controllerAnnotation->layoutName : null;
                     $controllerFilters = array_map('strtolower', $controllerAnnotation->filters);
 
@@ -217,8 +216,8 @@ class Router {
                              */
                             $actionAnnotation = $reflectionMethod->getAnnotation('Action');
                             if($actionAnnotation->mapped) {
-                                $actionRouteTemplate = trim($actionAnnotation->verifyRouteTemplate() ?? strtolower($reflectionMethod->name), '/');
-                                $actionLayoutTemplate = $actionAnnotation->layoutName ?? $controllerLayoutTemplate;
+                                $actionRouteTemplate = $actionAnnotation->verifyRouteTemplate() ? trim($actionAnnotation->verifyRouteTemplate(), '/') : strtolower($reflectionMethod->name);
+                                $actionLayoutTemplate = $actionAnnotation->layoutName ?  $actionAnnotation->layoutName : $controllerLayoutTemplate;
                                 $actionLayoutTemplate = Configuration::get('layouts/'.$actionLayoutTemplate, false) ? $actionLayoutTemplate : null;
                                 $actionFilters = array_diff(array_map("strtolower", $actionAnnotation->filters), $controllerFilters);
                                 $actionView = $actionAnnotation->viewName ? $actionAnnotation->viewName : $reflectionMethod->name;
@@ -305,13 +304,13 @@ class Router {
 
                             $eActionView = $eActionAnnotation->viewName ? $eActionAnnotation->viewName : $reflectionMethod->name;
                             $eActionView = file_exists(dirname($controllersFile[basename($cNamespace)])."/view/$eActionView.php") ? $eActionView : null;
-                            $eLayoutTemplate = $eActionAnnotation->layoutName ?? $controllerLayoutTemplate;
+                            $eLayoutTemplate = $eActionAnnotation->layoutName ? $eActionAnnotation->layoutName : $controllerLayoutTemplate;
                             $eLayoutTemplate = Configuration::get('layouts/'.$eLayoutTemplate, false) ? $eLayoutTemplate : null;
 
                             $this->routes['*']['actions'][$actionName] = [
                                 "method_name" => $reflectionMethod->name,
                                 "view_name" => $eActionView,
-                                "layout_name" => $eActionView ?? $eLayoutTemplate
+                                "layout_name" => $eActionView ? $eLayoutTemplate : null
                             ];
                         }
                     }
@@ -570,7 +569,146 @@ class Router {
         }
     }
 
-    public function handleRequest($baseUrl = null) : Response {
+    public function handleRequest($location = null) : Response {
+        try {
+            return $this->lookupRoute($location);
+        } catch(ForwardException $e) {
+            $this->response->putHeader(IHttpHeaders::Location, "/".$this->request->getApp()."/".$e->getForwardLocation());
+            $this->response->setResponseCode($e->getForwardHttpCode());
+            return $this->handleRequest($e->getForwardLocation());
+        }catch(Exception $e) {
+            return $this->handleError($e);
+        }
+    }
+
+    private function lookupRoute($location = null) : Response {
+        $baseUrl = $location ? $location : $this->request->getBaseUrl();
+        $baseUrl = trim($baseUrl, "/");
+        if($baseUrl == "") {
+            $controller = $this->resolveFinalController($this->routes, "");
+            $action = $this->resolveFinalAction($controller, "");
+            return $this->initializeControllerAction($controller, $action);
+        }
+        $controllerRoutes = array_keys($this->routes);
+        $filteredController = array_filter($controllerRoutes, function ($controllerTemplate) use ($baseUrl) {
+            $temp = str_replace("/", "\/", $controllerTemplate);
+            if($controllerTemplate == "" or $controllerTemplate == "*") return false;
+            return preg_match('/'.$temp.'/', $baseUrl);
+        });
+        if(count($filteredController) == 0) {
+            throw new Exception("Route not found", HttpHeaders::NotFound);
+        } else {
+            foreach ($filteredController as $fc) {
+                $controller = $this->resolveFinalController($this->routes, $fc);
+                if(preg_match('/^'.str_replace("/", "\/", $fc).'$/', $baseUrl)) {
+                    $action = $this->resolveFinalAction($controller, "");
+                    return $this->initializeControllerAction($controller, $action);
+                }
+                $actionRoutes = array_keys($controller['actions']);
+                $groups = [];
+                $filteredAction = array_filter($actionRoutes, function ($actionTemplate) use ($fc, $baseUrl, &$groups) {
+                    if($actionTemplate == "") return false;
+                    $temp = trim($fc.'/'.$actionTemplate,'/');
+                    $temp = str_replace("/", "\/", $temp);
+                    return preg_match('/'.$temp.'/', $baseUrl, $groups[$actionTemplate]);
+                });
+                if(count($filteredAction) == 0) {
+                    throw new Exception("Action not found",HttpHeaders::NotFound);
+                } else {
+                    $actionName = array_shift($filteredAction);
+                    $action = $this->resolveFinalAction($controller, $actionName);
+                    $parameters = count($groups) >= 1 ? array_slice($groups[$actionName],1) : [];
+                    return $this->initializeControllerAction($controller, $action, $parameters);
+                }
+            }
+        }
+    }
+
+    private function resolveFinalController($routes, $controllerName) {
+        if(array_key_exists($controllerName, $routes)) {
+            if(array_key_exists('forward', $routes[$controllerName])) {
+                return $this->resolveFinalController($routes, $routes[$controllerName]['forward']);
+            } else
+                return $routes[$controllerName];
+        } else {
+            throw new Exception("Controller not found", HttpHeaders::NotFound);
+        }
+
+    }
+
+    private function resolveFinalAction($controllerMetaData, $actionName) {
+        if(array_key_exists($actionName, $controllerMetaData['actions'])) {
+            if (array_key_exists('forward', $controllerMetaData['actions'][$actionName])) {
+                return $this->resolveFinalAction($controllerMetaData, $controllerMetaData['actions'][$actionName]['forward']);
+            } else
+                return $controllerMetaData['actions'][$actionName];
+        } else {
+            throw new Exception("Action not found",HttpHeaders::NotFound);
+        }
+    }
+
+    private function initializeControllerAction($controllerMetaData, $actionMetaData, $parameters = []) {
+        if (file_exists($controllerMetaData['path'])) {
+            if(in_array(strtolower($this->request->getRequestMethod()), $actionMetaData['request_methods'])) {
+                $this->applyFilters($controllerMetaData['filters_name']);
+                require_once $controllerMetaData['path'];
+                $reflectionController = new \ReflectionClass($controllerMetaData['namespace']);
+                // allowed method
+                if($reflectionController->hasMethod($actionMetaData['method_name'])) {
+                    // action filters enter
+                    $this->applyFilters($actionMetaData['filters_name']);
+                    $controller = $reflectionController->newInstance();
+                    // TODO : set controller parameters
+                    // setting request
+                    $property = $reflectionController->getProperty('request');
+                    $property->setAccessible(true);
+                    $property->setValue($controller, $this->request);
+                    // setting response
+                    $property = $reflectionController->getProperty('response');
+                    $property->setAccessible(true);
+                    $property->setValue($controller, $this->response);
+
+                    $method = $actionMetaData['method_name'];
+
+                    $actionParameters = [];
+                    foreach ($actionMetaData['parameters'] as $param) {
+                        $parameter = array_shift($parameters);
+                        var_dump($param);
+                        if(isset($parameter) && $parameter != "") {
+                            //$transform = $param['type'] ? $param['type'].'val' : null;
+                            //$parameter = function_exists($transform) ? $transform($parameter) : $parameter;
+                            $actionParameters[$param['name']] = $parameter;
+                        } else if($param['default'] != null || $param['allows_null'] == true) {
+                            $actionParameters[$param['name']] = $param['default'];
+                        } else {
+                            throw new Exception("Required parameter is missing", HttpHeaders::BadRequest);
+                        }
+                    }
+                    $reflectionMethod = $reflectionController->getMethod($method);
+                    $reflectionMethod->invokeArgs($controller, $actionParameters);
+
+                    // action filters leave
+                    $this->applyFilters($actionMetaData['filters_name']);
+                    // controller filters leave
+                    $this->applyFilters($controllerMetaData['filters_name']);
+
+                    if($actionMetaData['view_name']) {
+                        $layoutName = $actionMetaData['layout_name'];
+                        $viewTemplate = dirname($controllerMetaData['path'])."/view/".$actionMetaData['view_name'].".php";
+                        $this->generateLayout($layoutName, $viewTemplate);
+                    } else {
+                        $this->response->setContent(json_encode($this->response->getData()));
+                    }
+
+                    return $this->response;
+                }
+            } else
+                throw new Exception("Method not allowed",HttpHeaders::BadRequest);
+        } else
+            throw new Exception("Requested script not found",HttpHeaders::InternalServerError);
+    }
+
+    private function handleRequest2($baseUrl = null) : Response {
         try {
             $baseUrl = $baseUrl ?? $this->request->getBaseUrl();
             $this->baseUrl = $baseUrl;
@@ -609,10 +747,10 @@ class Router {
         $method = 'index';
         $controllerMetaData = null;
         $actionName = null;
-        if(array_key_exists("error", $this->shared) && file_exists($this->shared['error']['path'])) {
-            $controllerMetaData = $this->shared['error'];
-            require_once $this->shared['error']['path'];
-            $namespace = $this->shared['error']['namespace'];
+        if(array_key_exists("*", $this->routes) && file_exists($this->routes['*']['path'])) {
+            $controllerMetaData = $this->routes['*'];
+            require_once $this->routes['*']['path'];
+            $namespace = $this->routes['*']['namespace'];
             $reflectionErrorController = new \ReflectionClass($namespace);
             foreach ($controllerMetaData['actions'] as $actionKey => $actionData) {
                 if(preg_match('/'.$actionKey.'/', $e->getCode())) {
@@ -643,6 +781,7 @@ class Router {
 
         $controller->$method();
 
+        // TODO : remove this
         error_reporting(E_USER_WARNING);
         if($controllerMetaData && $controllerMetaData['actions'][$actionName]['view_name']) {
             $layoutName = $controllerMetaData['actions'][$actionName]['layout_name'];
@@ -721,64 +860,6 @@ class Router {
         } else {
             // file missing
             throw new Exception("Resource not found",HttpHeaders::InternalServerError);
-        }
-    }
-
-    private function initAction($routeMetaData, $actionMetaData): Response {
-        if (array_key_exists('forward', $actionMetaData)) {
-            return $this->initAction($routeMetaData, $routeMetaData['actions'][$actionMetaData['forward']]);
-        }
-        if(in_array(strtolower($this->request->getRequestMethod()), $actionMetaData['request_methods'])) {
-            $reflectionController = new \ReflectionClass($routeMetaData['namespace']);
-            // allowed method
-            if($reflectionController->hasMethod($actionMetaData['method_name'])) {
-                // action filters enter
-                $this->applyFilters($actionMetaData['filters_name']);
-                $controller = $reflectionController->newInstance();
-                // setting request
-                $property = $reflectionController->getProperty('request');
-                $property->setAccessible(true);
-                $property->setValue($controller, $this->request);
-                // setting response
-                $property = $reflectionController->getProperty('response');
-                $property->setAccessible(true);
-                $property->setValue($controller, $this->response);
-
-                $method = $actionMetaData['method_name'];
-
-                array_shift($this->urlParts);
-                $actionParameters = [];
-                foreach ($actionMetaData['parameters'] as $param) {
-                    if(isset($this->urlParts[0])) {
-                        $actionParameters[$param['name']] = $this->urlParts[0];
-                    } else if( $param['default'] != null || $param['allows_null'] == true) {
-                        $actionParameters[$param['name']] = $param['default'];
-                    } else {
-                        throw new Exception("Required parameter is missing", HttpHeaders::BadRequest);
-                    }
-                    array_shift($this->urlParts);
-                }
-                $reflectionMethod = $reflectionController->getMethod($method);
-                $reflectionMethod->invokeArgs($controller, $actionParameters);
-
-                // action filters leave
-                $this->applyFilters($actionMetaData['filters_name']);
-                // controller filters leave
-                $this->applyFilters($routeMetaData['filters_name']);
-
-                if(!$this->isApiUrlCall && $actionMetaData['view_name']) {
-                    $layoutName = $actionMetaData['layout_name'];
-                    $viewTemplate = dirname($routeMetaData['path'])."/view/".$actionMetaData['view_name'].".php";
-                    $this->generateLayout($layoutName, $viewTemplate);
-                } else {
-                    $this->response->setContent(json_encode($this->response->getData()));
-                }
-
-                return $this->response;
-            }
-        } else {
-            // method not allowed
-            throw new Exception("Method not allowed",HttpHeaders::BadRequest);
         }
     }
 

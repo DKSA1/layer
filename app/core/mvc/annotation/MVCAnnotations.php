@@ -3,7 +3,18 @@
 require_once(PATH . 'app/lib/addendum/annotations.php');
 
 // TODO : divide class in different files
-
+class MVCAnnotation extends Annotation
+{
+    public function verifyRouteTemplate() {
+        if(preg_match('/^[a-zA-Z0-9\/{}?]+$/', $this->routeTemplate)) {
+            //$res = str_replace("/", "\/", $this->routeTemplate);
+            $res = preg_replace('/{(\w+)}/', '(\w+)' ,$this->routeTemplate);
+            $res = preg_replace('/{\/?(\w+)\?}/', '?(\w*)' ,$res);
+            return $res;
+        }
+        return null;
+    }
+}
 /** @Target("class") */
 class Filter extends Annotation
 {
@@ -20,7 +31,7 @@ class Filter extends Annotation
 }
 
 /** @Target("class") */
-class Controller extends Annotation
+class Controller extends MVCAnnotation
 {
     /**
      * @var string
@@ -59,17 +70,10 @@ class Controller extends Annotation
         }
         return $routeNames;
     }
-
-    public function verifyRouteTemplate() {
-        if(preg_match('/^[a-zA-Z0-9]+$/', $this->routeTemplate)) {
-            return $this->routeTemplate;
-        }
-        return null;
-    }
 }
 
 /** @Target("method") */
-class Action extends Annotation
+class Action extends MVCAnnotation
 {
     /**
      * @var string
@@ -109,13 +113,6 @@ class Action extends Annotation
      */
     public function hasRequestMethod($method) {
        return in_array(strtolower($method),$this->methods);
-    }
-
-    public function verifyRouteTemplate() {
-        if(preg_match('/^[a-zA-Z0-9]+$/', $this->routeTemplate)) {
-            return $this->routeTemplate;
-        }
-        return null;
     }
 
     public function verifyRouteNames() {
