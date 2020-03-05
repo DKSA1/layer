@@ -13,51 +13,51 @@ class Request
     /**
      * @var string
      */
-    private $full_url;
+    private $fullUrl;
     /**
      * @var string
      */
-    private $base_url;
+    private $baseUrl;
     /**
      * @var string
      */
-    private $query_string;
+    private $queryString;
     /**
      * @var string
      */
-    private $request_method;
+    private $requestMethod;
     /**
      * @var bool
      */
-    private $isHttps;
+    private $https;
     /**
      * @var bool
      */
-    private $isAsynchronousRequest;
+    private $asynchronousRequest;
     /**
      * @var array
      */
-    private $request_data;
+    private $requestData;
     /**
      * @var string
      */
-    private $client_ip;
+    private $clientIp;
     /**
      * @var int
      */
-    private $client_port;
+    private $clientPort;
     /**
      * @var string
      */
-    private $server_ip;
+    private $serverIp;
     /**
      * @var int
      */
-    private $server_port;
+    private $serverPort;
     /**
      * @var int
      */
-    private $request_time;
+    private $requestTime;
     /**
      * @var string
      */
@@ -79,35 +79,56 @@ class Request
     {
         $this->app = trim(dirname($_SERVER['SCRIPT_NAME']),'/');
         $this->host = $_SERVER['HTTP_HOST'];
-        $this->base_url = $_REQUEST['url'];
-        $this->full_url = $_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI'];
-        $this->request_method = $_SERVER['REQUEST_METHOD'];
-        $this->query_string = $_SERVER['QUERY_STRING'];
-        $this->client_ip = $_SERVER['HTTP_CLIENT_IP'] ?? ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR']);
-        $this->client_port = intval($_SERVER['REMOTE_PORT']);
-        $this->server_ip = $_SERVER['SERVER_ADDR'];
-        $this->server_port = intval($_SERVER['SERVER_PORT']);
-        $this->request_time = $_SERVER['REQUEST_TIME_FLOAT'];
-        $this->request_data = array_merge($_GET, $_POST);
-        $this->isHttps = (((isset($_SERVER['HTTPS'])) && (strtolower($_SERVER['HTTPS']) == 'on')) || ((isset($_SERVER['HTTP_X_FORWARDED_PROTO'])) && (strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) == 'https')));
-        $this->isAsynchronousRequest = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
-        $ua = strtolower($_SERVER['HTTP_USER_AGENT']);
+        $this->baseUrl = $_REQUEST['url'];
+        $this->fullUrl = $_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI'];
+        $this->requestMethod = $_SERVER['REQUEST_METHOD'];
+        $this->queryString = $_SERVER['QUERY_STRING'];
+        $this->clientIp = $_SERVER['HTTP_CLIENT_IP'] ?? ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR']);
+        $this->clientPort = intval($_SERVER['REMOTE_PORT']);
+        $this->serverIp = $_SERVER['SERVER_ADDR'];
+        $this->serverPort = intval($_SERVER['SERVER_PORT']);
+        $this->requestTime = $_SERVER['REQUEST_TIME_FLOAT'];
+        $this->requestData = array_merge($_GET, $_POST);
+        $this->https = (((isset($_SERVER['HTTPS'])) && (strtolower($_SERVER['HTTPS']) == 'on')) || ((isset($_SERVER['HTTP_X_FORWARDED_PROTO'])) && (strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) == 'https')));
+        $this->asynchronousRequest = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
+        $ua = " ".strtolower($_SERVER['HTTP_USER_AGENT']);
         if(strpos($ua, 'chrome/')) {
             if(strpos($ua, 'safari/')) {
                 if(strpos($ua, 'opr/')) {
                     $this->clientBrowser = 'Opera';
-                } else if(strpos($ua, 'edge/')) {
+                } elseif(strpos($ua, 'edge/')) {
                     $this->clientBrowser = 'Edge';
                 } else {
                     $this->clientBrowser = 'Chrome';
                 }
             }
-        } else if(strpos($ua, 'safari/')) {
+        } elseif(strpos($ua, 'safari/')) {
             $this->clientBrowser = 'Safari';
-        } else if(strpos($ua, 'firefox/')) {
+        } elseif(strpos($ua, 'firefox/')) {
             $this->clientBrowser = 'Firefox';
-        } else if(strpos($ua, 'msie/')) {
+        } elseif(strpos($ua, 'msie/')) {
             $this->clientBrowser = 'Internet Explorer';
+        }
+        if(preg_match('/windows|win32|win98|win95|win16/',$ua)) {
+            $this->clientOS = 'Windows';
+        } else if(strpos($ua, 'android')) {
+            $this->clientOS = 'Android';
+        } else if(preg_match('/macintosh|mac os x|mac_powerpc/', $ua))  {
+            $this->clientOS = 'Macintosh';
+        } else if(strpos($ua, 'linux')) {
+            $this->clientOS = 'Linux';
+        } elseif (strpos($ua, 'ubuntu')) {
+            $this->clientOS = 'Ubuntu';
+        } elseif (strpos($ua, 'iphone')) {
+            $this->clientOS = 'IPhone';
+        } elseif (strpos($ua, 'ipod')) {
+            $this->clientOS = 'IPod';
+        } elseif (strpos($ua, 'ipad')) {
+            $this->clientOS = 'IPad';
+        } elseif (strpos($ua, 'blackberry')) {
+            $this->clientOS = 'Blackberry';
+        } elseif (strpos($ua, 'webos')) {
+            $this->clientOS = 'Mobile';
         }
     }
 
@@ -116,7 +137,7 @@ class Request
      */
     public function getFullUrl()
     {
-        return $this->full_url;
+        return $this->fullUrl;
     }
 
     /**
@@ -124,7 +145,7 @@ class Request
      */
     public function getBaseUrl()
     {
-        return $this->base_url;
+        return $this->baseUrl;
     }
 
     /**
@@ -269,12 +290,12 @@ class Request
     public function getRequestData($key = null)
     {
         if($key){
-            if(array_key_exists($key,$this->request_data))
-                return $this->request_data[$key];
+            if(array_key_exists($key,$this->requestData))
+                return $this->requestData[$key];
             else
                 return null;
         }else{
-            return $this->request_data;
+            return $this->requestData;
         }
     }
 
@@ -283,7 +304,7 @@ class Request
      */
     public function getQueryString()
     {
-        return $this->query_string;
+        return $this->queryString;
     }
 
     /**
@@ -291,7 +312,7 @@ class Request
      */
     public function getRequestMethod()
     {
-        return $this->request_method;
+        return $this->requestMethod;
     }
 
     /**
@@ -299,7 +320,7 @@ class Request
      */
     public function isHttps(): bool
     {
-        return $this->isHttps;
+        return $this->https;
     }
 
     /**
@@ -307,7 +328,7 @@ class Request
      */
     public function isAsynchronousRequest(): bool
     {
-        return $this->isAsynchronousRequest;
+        return $this->asynchronousRequest;
     }
 
     /**
@@ -315,7 +336,7 @@ class Request
      */
     public function getClientIp(): string
     {
-        return $this->client_ip;
+        return $this->clientIp;
     }
 
     /**
@@ -323,7 +344,7 @@ class Request
      */
     public function getClientPort(): int
     {
-        return $this->client_port;
+        return $this->clientPort;
     }
 
     /**
@@ -331,7 +352,7 @@ class Request
      */
     public function getServerIp(): string
     {
-        return $this->server_ip;
+        return $this->serverIp;
     }
 
     /**
@@ -339,7 +360,7 @@ class Request
      */
     public function getServerPort(): int
     {
-        return $this->server_port;
+        return $this->serverPort;
     }
 
     /**
@@ -347,7 +368,7 @@ class Request
      */
     public function getRequestTime(): int
     {
-        return $this->request_time;
+        return $this->requestTime;
     }
 
     /**
@@ -372,6 +393,14 @@ class Request
     public function getClientBrowser(): string
     {
         return $this->clientBrowser;
+    }
+
+    /**
+     * @return string
+     */
+    public function getClientOS(): string
+    {
+        return $this->clientOS;
     }
 
 }

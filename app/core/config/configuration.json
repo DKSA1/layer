@@ -25,14 +25,14 @@
       "current" : "dev",
       "dev": {
         "log": true,
-        "logTemplate" : "[{request_datetime}][{environment}][{client_ip} {client_browser}][{request_method} {request_resource}]:{message}",
+        "logTemplate" : "[{request_datetime}][{environment}][{client_ip} {client_browser} {client_os}][{request_method} {request_resource}]:{message}",
         "buildRoutesMap": true,
         "buildRelationalMap": false,
-        "buildSharedMap": true
+        "buildSharedMap": false
       },
       "prod": {
         "log": true,
-        "logTemplate" : "[{request_datetime}][{environment}][{client_ip} {client_browser}][{request_method} {request_resource}]:{message}",
+        "logTemplate" : "[{request_datetime}][{environment}][{client_ip} {client_browser} {client_os}][{request_method} {request_resource}]:{message}",
         "buildRoutesMap": false,
         "buildRelationalMap": false,
         "buildSharedMap": false

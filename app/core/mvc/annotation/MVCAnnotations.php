@@ -5,6 +5,11 @@ require_once(PATH . 'app/lib/addendum/annotations.php');
 // TODO : divide class in different files
 class MVCAnnotation extends Annotation
 {
+    public function grepRouteTemplateParameters() {
+        $params = [];
+        preg_match('/{(\w+)}/', $this->routeTemplate, $params);
+        return count($params) >= 1 ? array_slice($params, 1) : [];
+    }
     public function verifyRouteTemplate() {
         if(preg_match('/^[a-zA-Z0-9\/{}?]+$/', $this->routeTemplate)) {
             //$res = str_replace("/", "\/", $this->routeTemplate);

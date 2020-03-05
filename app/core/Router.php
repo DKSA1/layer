@@ -68,7 +68,6 @@ class Router {
         if(Configuration::get('environment/'.Configuration::$environment.'/buildRoutesMap') || !($this->loadRoutesMap() && $this->loadShared())) {
             $this->discoverRoutes();
             $this->buildSharedMap();
-            // $this->buildRoutesMap();
         }
     }
 
@@ -82,7 +81,7 @@ class Router {
     {
         if(file_exists(PATH."app\core\config\\routes_map.json"))
         {
-            if($data = file_get_contents(PATH."app\core\config\\routes_map.json"))
+            if($data = file_get_contents(PATH."app\core\config\\routes.json"))
             {
                 $this->routes = json_decode($data,true);
                 return true;
@@ -204,6 +203,7 @@ class Router {
                         "namespace" => $cNamespace,
                         "path" => trim($controllersFile[basename($cNamespace)]),
                         "filters_name" => $controllerFilters,
+                        "parameters" => $controllerAnnotation->grepRouteTemplateParameters(),
                         "actions" => []
                     ];
                     /**
@@ -216,6 +216,7 @@ class Router {
                              */
                             $actionAnnotation = $reflectionMethod->getAnnotation('Action');
                             if($actionAnnotation->mapped) {
+                                //var_dump($actionAnnotation->grepRouteTemplateParameters());
                                 $actionRouteTemplate = $actionAnnotation->verifyRouteTemplate() ? trim($actionAnnotation->verifyRouteTemplate(), '/') : strtolower($reflectionMethod->name);
                                 $actionLayoutTemplate = $actionAnnotation->layoutName ?  $actionAnnotation->layoutName : $controllerLayoutTemplate;
                                 $actionLayoutTemplate = Configuration::get('layouts/'.$actionLayoutTemplate, false) ? $actionLayoutTemplate : null;
@@ -224,17 +225,20 @@ class Router {
                                 // TODO : check if file exists in shared
                                 $actionView = file_exists(dirname($controllersFile[basename($cNamespace)])."/view/$actionView.php") ? $actionView : null;
 
+                                $urlParameters = $actionAnnotation->grepRouteTemplateParameters();
                                 $actionParameters = [];
                                 /**
                                  * @var \ReflectionParameter $reflectionParameter
                                  */
                                 foreach ($reflectionMethod->getParameters() as $reflectionParameter) {
+                                    $urlPosition = array_search($reflectionParameter->getName(), $urlParameters);
                                     $actionParameters[$reflectionParameter->getPosition()] = [
                                         "name" => $reflectionParameter->getName(),
                                         "required" => !$reflectionParameter->isOptional(),
                                         "default" => $reflectionParameter->isDefaultValueAvailable() ? $reflectionParameter->getDefaultValue() : null,
                                         "allows_null" => $reflectionParameter->allowsNull(),
-                                        "type" => $reflectionParameter->hasType() ? $reflectionParameter->getType()."" : null
+                                        "type" => $reflectionParameter->hasType() ? $reflectionParameter->getType()."" : null,
+                                        "routeTemplatePosition" => is_int($urlPosition) ? $urlPosition : null
                                     ];
                                 }
 
@@ -590,35 +594,37 @@ class Router {
             return $this->initializeControllerAction($controller, $action);
         }
         $controllerRoutes = array_keys($this->routes);
-        $filteredController = array_filter($controllerRoutes, function ($controllerTemplate) use ($baseUrl) {
+        $controllerParameters = [];
+        $filteredController = array_filter($controllerRoutes, function ($controllerTemplate) use ($baseUrl, &$controllerParameters) {
             $temp = str_replace("/", "\/", $controllerTemplate);
             if($controllerTemplate == "" or $controllerTemplate == "*") return false;
-            return preg_match('/'.$temp.'/', $baseUrl);
+            return preg_match('/'.$temp.'/', $baseUrl, $controllerParameters[$controllerTemplate]);
         });
         if(count($filteredController) == 0) {
             throw new Exception("Route not found", HttpHeaders::NotFound);
         } else {
             foreach ($filteredController as $fc) {
+                $controllerParameters = count($controllerParameters) >= 1 ? array_slice($controllerParameters[$fc], 1) : [];
                 $controller = $this->resolveFinalController($this->routes, $fc);
                 if(preg_match('/^'.str_replace("/", "\/", $fc).'$/', $baseUrl)) {
                     $action = $this->resolveFinalAction($controller, "");
-                    return $this->initializeControllerAction($controller, $action);
+                    return $this->initializeControllerAction($controller, $action, [], $controllerParameters);
                 }
                 $actionRoutes = array_keys($controller['actions']);
-                $groups = [];
-                $filteredAction = array_filter($actionRoutes, function ($actionTemplate) use ($fc, $baseUrl, &$groups) {
+                $actionParameters = [];
+                $filteredAction = array_filter($actionRoutes, function ($actionTemplate) use ($fc, $baseUrl, &$actionParameters) {
                     if($actionTemplate == "") return false;
                     $temp = trim($fc.'/'.$actionTemplate,'/');
                     $temp = str_replace("/", "\/", $temp);
-                    return preg_match('/'.$temp.'/', $baseUrl, $groups[$actionTemplate]);
+                    return preg_match('/'.$temp.'/', $baseUrl, $actionParameters[$actionTemplate]);
                 });
                 if(count($filteredAction) == 0) {
                     throw new Exception("Action not found",HttpHeaders::NotFound);
                 } else {
                     $actionName = array_shift($filteredAction);
                     $action = $this->resolveFinalAction($controller, $actionName);
-                    $parameters = count($groups) >= 1 ? array_slice($groups[$actionName],1) : [];
-                    return $this->initializeControllerAction($controller, $action, $parameters);
+                    $actionParameters = count($actionParameters) >= 1 ? array_slice($actionParameters[$actionName],1) : [];
+                    return $this->initializeControllerAction($controller, $action, $actionParameters, $controllerParameters);
                 }
             }
         }
@@ -647,33 +653,31 @@ class Router {
         }
     }
 
-    private function initializeControllerAction($controllerMetaData, $actionMetaData, $parameters = []) {
+    private function initializeControllerAction($controllerMetaData, $actionMetaData, $actionParams = [], $controllerParams = []) {
         if (file_exists($controllerMetaData['path'])) {
             if(in_array(strtolower($this->request->getRequestMethod()), $actionMetaData['request_methods'])) {
                 $this->applyFilters($controllerMetaData['filters_name']);
                 require_once $controllerMetaData['path'];
                 $reflectionController = new \ReflectionClass($controllerMetaData['namespace']);
-                // allowed method
                 if($reflectionController->hasMethod($actionMetaData['method_name'])) {
-                    // action filters enter
                     $this->applyFilters($actionMetaData['filters_name']);
                     $controller = $reflectionController->newInstance();
-                    // TODO : set controller parameters
-                    // setting request
+                    if(array_key_exists("parameters", $controllerMetaData)) {
+                        foreach ($controllerMetaData['parameters'] as $param) {
+                            $value = array_shift($controllerParams);
+                            $controller->$param = $value;
+                        }
+                    }
                     $property = $reflectionController->getProperty('request');
                     $property->setAccessible(true);
                     $property->setValue($controller, $this->request);
-                    // setting response
                     $property = $reflectionController->getProperty('response');
                     $property->setAccessible(true);
                     $property->setValue($controller, $this->response);
-
                     $method = $actionMetaData['method_name'];
-
                     $actionParameters = [];
                     foreach ($actionMetaData['parameters'] as $param) {
-                        $parameter = array_shift($parameters);
-                        var_dump($param);
+                        $parameter = array_shift($actionParams);
                         if(isset($parameter) && $parameter != "") {
                             //$transform = $param['type'] ? $param['type'].'val' : null;
                             //$parameter = function_exists($transform) ? $transform($parameter) : $parameter;
@@ -686,12 +690,8 @@ class Router {
                     }
                     $reflectionMethod = $reflectionController->getMethod($method);
                     $reflectionMethod->invokeArgs($controller, $actionParameters);
-
-                    // action filters leave
                     $this->applyFilters($actionMetaData['filters_name']);
-                    // controller filters leave
                     $this->applyFilters($controllerMetaData['filters_name']);
-
                     if($actionMetaData['view_name']) {
                         $layoutName = $actionMetaData['layout_name'];
                         $viewTemplate = dirname($controllerMetaData['path'])."/view/".$actionMetaData['view_name'].".php";
@@ -699,7 +699,6 @@ class Router {
                     } else {
                         $this->response->setContent(json_encode($this->response->getData()));
                     }
-
                     return $this->response;
                 }
             } else
