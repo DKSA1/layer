@@ -20,13 +20,6 @@ use layer\core\utils\Logger;
 
 abstract class Controller extends CoreController {
 
-    /**
-     * Controller constructor.
-     */
-    public function __construct()
-    {
-
-    }
-
     public abstract function index();
+
 }

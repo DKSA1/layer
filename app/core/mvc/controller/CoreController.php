@@ -13,11 +13,11 @@ abstract class CoreController
     /**
      * @var Request $request
      */
-    protected $request;
+    protected static $request;
     /**
      * @var Response $response
      */
-    protected $response;
+    protected static $response;
 
     /**
      * @param string $internalUrl
@@ -32,7 +32,7 @@ abstract class CoreController
     protected final function redirect($url, $timeout = 0) {
         Logger::write(' Redirecting to '.$url);
         header( "refresh:".$timeout.";url=".$url);
-        $this->response->sendHeaders();
+        self::$response->sendHeaders();
         exit();
     }
 }
