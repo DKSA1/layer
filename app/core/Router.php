@@ -36,7 +36,10 @@ class Router {
      * @var Router
      */
     private static $instance;
-
+    /**
+     * @var Filter[] $filters
+     */
+    private $filters = [];
     private $controller;
     /**
      * @var array $routes
@@ -146,6 +149,7 @@ class Router {
         file_put_contents('app/core/config/shared.json', json_encode($this->shared, JSON_PRETTY_PRINT));
     }
 
+    // TODO : if route has no actions inside do not map it
     private function discoverRoutes() {
         $this->routes = [];
         $servicesFolder = Configuration::get("locations/services");
@@ -359,6 +363,7 @@ class Router {
             return $this->lookupRoute($location);
         } catch(ForwardException $e) {
             unset($this->controller);
+            $this->filters = [];
             $this->response->putHeader(IHttpHeaders::Location, "/".$this->request->getApp()."/".$e->getForwardLocation());
             $this->response->setResponseCode($e->getForwardHttpCode());
             return $this->handleRequest($e->getForwardLocation());
@@ -455,7 +460,7 @@ class Router {
                         } else if($param['default'] != null || $param['allows_null'] == true) {
                             $controllerParameters[$param['name']] = $param['default'];
                         } else {
-                            throw new Exception("Required parameter is missing", HttpHeaders::BadRequest);
+                            throw new Exception("Required controller parameter {$param['name']} is missing", HttpHeaders::BadRequest);
                         }
                     }
                     $this->controller = $reflectionController->newInstanceArgs($controllerParameters);
@@ -486,7 +491,7 @@ class Router {
                         } else if($param['default'] != null || $param['allows_null'] == true) {
                             $actionParameters[$param['name']] = $param['default'];
                         } else {
-                            throw new Exception("Required parameter is missing", HttpHeaders::BadRequest);
+                            throw new Exception("Required action parameter {$param['name']} is missing", HttpHeaders::BadRequest);
                         }
                     }
                     $reflectionMethod = $reflectionController->getMethod($method);
@@ -503,7 +508,7 @@ class Router {
                     return $this->response;
                 }
             } else
-                throw new Exception("Method not allowed",HttpHeaders::BadRequest);
+                throw new Exception("Method {$this->request->getRequestMethod()} not allowed",HttpHeaders::BadRequest);
         } else
             throw new Exception("Requested script not found",HttpHeaders::InternalServerError);
     }
