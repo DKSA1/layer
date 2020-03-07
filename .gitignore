@@ -4,7 +4,7 @@ resources/
 logs/
 app/services/
 robots.txt
-sitemap.xml
+public/sitemap.xml
 app/models/
 
 app/core/config/relational_map.json

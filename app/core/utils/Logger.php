@@ -16,6 +16,7 @@ class Logger
     /**
      * @var Response
      */
+    // TODO : not used here remove ?
     public static $response;
 
     static function write($message, $template = NULL) {

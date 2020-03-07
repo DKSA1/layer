@@ -7,13 +7,15 @@ class MVCAnnotation extends Annotation
 {
     public function grepRouteTemplateParameters() {
         $params = [];
-        preg_match('/{(\w+)}/', $this->routeTemplate, $params);
+        preg_match('/{#?(\w+)\??}/', $this->routeTemplate, $params);
         return count($params) >= 1 ? array_slice($params, 1) : [];
     }
     public function verifyRouteTemplate() {
-        if(preg_match('/^[a-zA-Z0-9\/{}?]+$/', $this->routeTemplate)) {
-            //$res = str_replace("/", "\/", $this->routeTemplate);
-            $res = preg_replace('/{(\w+)}/', '(\w+)' ,$this->routeTemplate);
+        if(preg_match('/^[a-zA-Z0-9\/{}?#]+$/', $this->routeTemplate)) {
+            $res = $this->routeTemplate;
+            $res = preg_replace('/{#(\w+)}/', '(\d+)', $res);
+            $res = preg_replace('/{\/?#(\w+)\?}/', '?(\d*)', $res);
+            $res = preg_replace('/{(\w+)}/', '(\w+)' , $res);
             $res = preg_replace('/{\/?(\w+)\?}/', '?(\w*)' ,$res);
             return $res;
         }

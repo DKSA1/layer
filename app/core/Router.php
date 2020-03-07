@@ -79,7 +79,7 @@ class Router {
 
     private function loadRoutesMap()
     {
-        if(file_exists(PATH."app\core\config\\routes_map.json"))
+        if(file_exists(PATH."app\core\config\\routes.json"))
         {
             if($data = file_get_contents(PATH."app\core\config\\routes.json"))
             {
@@ -156,7 +156,7 @@ class Router {
                 }
         }
 
-        file_put_contents('app/core/config/shared2.json', json_encode($this->shared, JSON_PRETTY_PRINT));
+        file_put_contents('app/core/config/shared.json', json_encode($this->shared, JSON_PRETTY_PRINT));
     }
 
     private function discoverRoutes() {
@@ -603,6 +603,7 @@ class Router {
         if(count($filteredController) == 0) {
             throw new Exception("Route not found", HttpHeaders::NotFound);
         } else {
+            // TODO : replace by taking only first elem
             foreach ($filteredController as $fc) {
                 $controllerParameters = count($controllerParameters) >= 1 ? array_slice($controllerParameters[$fc], 1) : [];
                 $controller = $this->resolveFinalController($this->routes, $fc);
@@ -780,8 +781,6 @@ class Router {
 
         $controller->$method();
 
-        // TODO : remove this
-        error_reporting(E_USER_WARNING);
         if($controllerMetaData && $controllerMetaData['actions'][$actionName]['view_name']) {
             $layoutName = $controllerMetaData['actions'][$actionName]['layout_name'];
             $viewTemplate = dirname($controllerMetaData['path'])."/view/".$controllerMetaData['actions'][$actionName]['view_name'].".php";

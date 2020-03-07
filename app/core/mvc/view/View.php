@@ -4,17 +4,17 @@ namespace layer\core\mvc\view;
 
 use Closure;
 
-class View
+class View implements IView
 {
     private $viewTemplate;
     private $viewData = [];
 
-    public function __construct($viewTemplate)
+    public function __construct(string $viewTemplate)
     {
         $this->setViewTemplate($viewTemplate);
     }
 
-    public function setViewTemplate($viewTemplate) {
+    public function setViewTemplate(string $viewTemplate) {
         if(is_file($viewTemplate) && is_readable($viewTemplate)) {
             $this->viewTemplate = $viewTemplate;
         }
@@ -24,8 +24,10 @@ class View
         return $this->viewTemplate;
     }
 
-    public function render($data = NULL): string {
-        extract($data ?? $this->viewData);
+    public function render(array $data = NULL): string {
+        if($data) {
+            $this->viewData = $data;
+        }
         ob_start();
         require_once $this->viewTemplate;
         return ob_get_clean();

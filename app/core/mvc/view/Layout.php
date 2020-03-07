@@ -2,7 +2,7 @@
 
 namespace layer\core\mvc\view;
 
-class Layout
+class Layout implements IView
 {
     /**
      * @var string
@@ -18,21 +18,21 @@ class Layout
         $this->layoutName = $layoutName;
     }
 
-    public function appendView($view): Layout {
+    public function appendView(IView $view): Layout {
         if(!in_array($view, $this->views, true)) {
             $this->views[] = $view;
         }
         return $this;
     }
 
-    public function removeView($view): Layout {
+    public function removeView(IView $view): Layout {
         $this->views = array_filter($this->views, function ($v) use ($view) {
             return $v !== $view;
         });
         return $this;
     }
 
-    public function render($data = NULL): string {
+    public function render(array $data = NULL): string {
         ob_start();
         foreach ($this->views as $view) {
             echo $view->render($data);

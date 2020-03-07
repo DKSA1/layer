@@ -19,11 +19,15 @@ class Response
      */
     private $content;
 
+    //TODO : add layout with views attribute ?
+
     private $headers;
 
     private $data;
 
     private $responseTime;
+
+    private $headersSent = false;
 
     public function __construct()
     {
@@ -76,11 +80,18 @@ class Response
         return $this->responseTime;
     }
 
-    public function sendResponse() {
-        HttpHeaders::ResponseHeader($this->getResponseCode());
-        header("X-Powered-By: Hello there");
+    public function sendHeaders() {
+        HttpHeaders::responseHeader($this->getResponseCode());
+        $this->putHeader(IHttpHeaders::X_Powered_By,'Hello there');
         foreach ($this->getHeaders() as $h => $v) {
             header($h.":".$v, true, $this->getResponseCode());
+        }
+        $this->headersSent = true;
+    }
+
+    public function sendResponse() {
+        if(!$this->headersSent) {
+            $this->sendHeaders();
         }
         echo $this->getContent();
         $this->responseTime = microtime(true);

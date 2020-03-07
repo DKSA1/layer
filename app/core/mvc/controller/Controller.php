@@ -18,16 +18,8 @@ use layer\core\Router;
 use Exception;
 use layer\core\utils\Logger;
 
-abstract class Controller {
+abstract class Controller extends CoreController {
 
-    /**
-     * @var Request $request
-     */
-    protected $request;
-    /**
-     * @var Response $response
-     */
-    protected $response;
     /**
      * Controller constructor.
      */
@@ -37,20 +29,4 @@ abstract class Controller {
     }
 
     public abstract function index();
-
-    /**
-     * @param string $internalUrl
-     * @param int $httpCode
-     * @throws ForwardException
-     */
-    protected final function forward($internalUrl, $httpCode = HttpHeaders::MovedTemporarily){
-        Logger::write("[".$httpCode."] Forwarding request to new location: ".$internalUrl);
-        throw new ForwardException($httpCode, $internalUrl);
-    }
-
-    protected final function redirect($url, $timeout = 0) {
-        Logger::write(' Redirecting to '.$url);
-        header( "refresh:".$timeout.";url=".$url);
-        exit();
-    }
 }

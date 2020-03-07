@@ -98,4 +98,5 @@ interface IHttpHeaders
         const X_Forwarded_Proto = "X-Forwarded-Proto";
         const X_Frame_Options = "X-Frame-Options";
         const X_XSS_Protection = "X-XSS-Protection";
+        const X_Powered_By = 'X-Powered-By';
 }

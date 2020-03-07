@@ -9,6 +9,7 @@
 namespace layer\core\mvc\controller;
 use layer\core\http\HttpHeaders;
 
+// TODO : make abstract class
 class ErrorController extends Controller
 {
     /**
