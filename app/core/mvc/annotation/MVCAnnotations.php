@@ -3,13 +3,15 @@
 require_once(PATH . 'app/lib/addendum/annotations.php');
 
 // TODO : divide class in different files
-class MVCAnnotation extends Annotation
+
+abstract class MVCAnnotation extends Annotation
 {
     public function grepRouteTemplateParameters() {
         $params = [];
         preg_match('/{#?(\w+)\??}/', $this->routeTemplate, $params);
         return count($params) >= 1 ? array_slice($params, 1) : [];
     }
+
     public function verifyRouteTemplate() {
         if(preg_match('/^[a-zA-Z0-9\/{}?#]+$/', $this->routeTemplate)) {
             $res = $this->routeTemplate;
@@ -22,11 +24,17 @@ class MVCAnnotation extends Annotation
         return null;
     }
 }
+
 /** @Target("class") */
 class Filter extends Annotation
 {
+    /**
+     * @var string $name
+     */
     public $name = null;
-
+    /**
+     * @var bool $mapped
+     */
     public $mapped = true;
 
     public function verifyName() {
@@ -44,14 +52,6 @@ class Controller extends MVCAnnotation
      * @var string
      */
     public $routeTemplate;
-    /**
-     * @var bool
-     */
-    public $api = false;
-    /**
-     * @var string[]
-     */
-    public $routeNames = [];
     /**
      * @var bool
      */
@@ -87,17 +87,9 @@ class Action extends MVCAnnotation
      */
     public $routeTemplate;
     /**
-     * @var string[]
-     */
-    public $routeNames = [];
-    /**
      * @var \layer\core\http\IHttpMethods[]
      */
     public $methods = [\layer\core\http\IHttpMethods::POST,\layer\core\http\IHttpMethods::GET];
-    /**
-     * @var bool
-     */
-    public $api = false;
     /**
      * @var bool
      */
@@ -139,6 +131,7 @@ class Action extends MVCAnnotation
     
 }
 
+/** @Target("class") */
 class ErrorController extends Annotation {
     /**
      * @var string
@@ -146,6 +139,7 @@ class ErrorController extends Annotation {
     public $layoutName = null;
 }
 
+/** @Target("method") */
 class ErrorAction extends Annotation {
     /**
      * @var string[]
@@ -165,7 +159,46 @@ class ErrorAction extends Annotation {
     public $layoutName = null;
 }
 
+/** @Target("class") */
 class DefaultController extends Controller {
 
+}
+
+/** @Target("class") */
+class ApiController extends MVCAnnotation
+{
+    /**
+     * @var string
+     */
+    public $routeTemplate;
+    /**
+     * @var bool
+     */
+    public $mapped = true;
+    /**
+     * @var string[]
+     */
+    public $filters = [];
+}
+
+/** @Target("method") */
+class ApiAction extends MVCAnnotation
+{
+    /**
+     * @var string
+     */
+    public $routeTemplate;
+    /**
+     * @var \layer\core\http\IHttpMethods[]
+     */
+    public $methods = [\layer\core\http\IHttpMethods::POST,\layer\core\http\IHttpMethods::GET];
+    /**
+     * @var bool
+     */
+    public $mapped = true;
+    /**
+     * @var string[]
+     */
+    public $filters = [];
 }
 

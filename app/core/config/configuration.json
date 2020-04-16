@@ -3,6 +3,10 @@
     "basic": {
       "before": ["header","navbar","breadcrumbs"],
       "after": ["footer"]
+    },
+    "simple": {
+      "before": ["header", "navbar"],
+      "after": ["footer"]
     }
   },
   "globals" : {

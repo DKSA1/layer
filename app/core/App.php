@@ -9,7 +9,7 @@
 namespace layer\core;
 
 use layer\core\config\Configuration;
-use layer\core\persistence\EntityBuilder;
+use layer\core\route\Router;
 use layer\core\utils\Logger;
 
 
@@ -24,10 +24,6 @@ class App
      * @var Router $router
      */
     private $router;
-    /**
-     * @var EntityBuilder $builder
-     */
-    private $builder;
 
 
     public static function getInstance() : App
@@ -50,8 +46,6 @@ class App
         $this->router = Router::getInstance();
 
         //$this->builder = EntityBuilder::getInstance();
-
-        $this->router->CORS();
 
         $response = $this->router->handleRequest();
 
