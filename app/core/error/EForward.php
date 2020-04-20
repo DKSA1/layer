@@ -1,10 +1,9 @@
 <?php
-namespace layer\core\exception;
+namespace layer\core\error;
 
-use layer\core\http\HttpHeaders;
 use Throwable;
 
-class ForwardException extends \Exception
+class EForward extends ELayer
 {
     /**
      * @var int

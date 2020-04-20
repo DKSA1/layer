@@ -1,16 +1,12 @@
 <?php
-/**
- * Created by IntelliJ IDEA.
- * User: Home
- * Date: 01-09-19
- * Time: 19:35
- */
+
 
 namespace layer\core\mvc\controller;
 
+
 use layer\core\error\ELayer;
 
-abstract class ErrorController extends Controller
+class ApiErrorController extends ApiController
 {
     /**
      * @var ELayer $error
@@ -19,7 +15,7 @@ abstract class ErrorController extends Controller
 
     public function __construct(ELayer $e)
     {
-       parent::__construct();
-       $this->error = $e;
+        parent::__construct();
+        $this->error = $e;
     }
 }

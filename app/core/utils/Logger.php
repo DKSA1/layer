@@ -3,6 +3,8 @@
 namespace layer\core\utils;
 
 use layer\core\config\Configuration;
+use layer\core\error\EConfiguration;
+use layer\core\http\IHttpCodes;
 use layer\core\http\Request;
 use layer\core\http\Response;
 
@@ -13,15 +15,10 @@ class Logger
      * @var Request
      */
     public static $request;
-    /**
-     * @var Response
-     */
-    // TODO : not used here remove ?
-    public static $response;
 
     static function write($message, $template = NULL) {
         if(Configuration::get("environment/".Configuration::$environment."/log")) {
-            if(self::$response && self::$request) {
+            if(self::$request) {
                 try {
                     $log = $template ?? Configuration::get("environment/".Configuration::$environment."/logTemplate");
                     $date = date('Y-m-d');
@@ -41,8 +38,8 @@ class Logger
                         mkdir(Configuration::get("locations/logs"),0777, true);
                     }
                     file_put_contents(Configuration::get("locations/logs")."/log_$date.txt", $log, FILE_APPEND);
-                } catch (\Exception $e) {
-                    // echo $e->getMessage();
+                } catch (\Error $e) {
+                    throw new EConfiguration('An error occured during the log process', IHttpCodes::InternalServerError);
                 }
             }
         }

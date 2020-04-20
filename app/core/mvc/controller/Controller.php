@@ -7,18 +7,14 @@
  */
 namespace layer\core\mvc\controller;
 
-use layer\core\config\Configuration;
-use layer\core\exception\ForwardException;
-use layer\core\http\HttpHeaders;
-use layer\core\http\IHttpHeaders;
-use layer\core\http\Request;
-use layer\core\http\Response;
-use layer\core\mvc\model\ViewModel;
-use layer\core\Router;
-use Exception;
-use layer\core\utils\Logger;
+use layer\core\mvc\view\ViewProperty;
 
 abstract class Controller extends CoreController {
+
+    /**
+     * @var ViewProperty $actionViewProperty
+     */
+    protected $actionViewProperty;
 
     public abstract function index();
 

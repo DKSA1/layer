@@ -72,6 +72,7 @@ interface IHttpHeaders
         const Range = "Range";
         const Referer = "Referer";
         const Referrer_Policy = "Referrer-Policy";
+        const Refresh = "refresh";
         const Retry_After = "Retry-After";
         const Sec_WebSocket_Accept = "Sec-WebSocket-Accept";
         const Server = "Server";

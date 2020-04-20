@@ -8,6 +8,8 @@
 
 namespace layer\core\http;
 
+use layer\core\utils\File;
+
 class Request
 {
     /**
@@ -61,11 +63,11 @@ class Request
     /**
      * @var string
      */
-    private $clientBrowser;
+    private $clientBrowser = '';
     /**
      * @var string
      */
-    private $clientOS;
+    private $clientOS = '';
     /**
      * @var string
      */
@@ -74,8 +76,18 @@ class Request
      * @var string
      */
     private $app;
+    /**
+     * @var Request
+     */
+    private static $instance;
 
-    public function __construct()
+    public static function getInstance() : Request
+    {
+        if(self::$instance == null) self::$instance = new Request();
+        return self::$instance;
+    }
+
+    private function __construct()
     {
         $this->app = trim(dirname($_SERVER['SCRIPT_NAME']),'/');
         $this->host = $_SERVER['HTTP_HOST'];
@@ -109,6 +121,7 @@ class Request
         } elseif(strpos($ua, 'msie/')) {
             $this->clientBrowser = 'Internet Explorer';
         }
+
         if(preg_match('/windows|win32|win98|win95|win16/',$ua)) {
             $this->clientOS = 'Windows';
         } else if(strpos($ua, 'android')) {
@@ -234,6 +247,56 @@ class Request
         }else{
             return $_FILES;
         }
+    }
+
+    /**
+     * @return File[]
+     */
+    public function getUploadedFiles() : array
+    {
+        $files = [];
+        foreach ($_FILES as $fileName) {
+            $f = File::getInstance($fileName['tmp_name'], $fileName['name'], $fileName['type']);
+            array_push($files, $f);
+        }
+        return $files;
+    }
+
+    /**
+     * @param $name string
+     * @return File
+     */
+    public function getUploadedFile($name) : File
+    {
+        if(array_key_exists($name, $_FILES)) {
+            return File::getInstance($_FILES[$name]['tmp_name'],$_FILES[$name]['name'], $_FILES[$name]['type']);
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     *
+     */
+    public function getControllerParameters() {
+
+    }
+
+    /**
+     *
+     */
+    public function getActionParameters() {
+
+    }
+
+    public function getHeader($name)
+    {
+        $name = strtoupper($name);
+        if(array_key_exists("HTTP_".$name, $_SERVER))
+        {
+            return explode(',',$_SERVER["HTTP_".$name]);
+        }
+        return null;
     }
 
     /**

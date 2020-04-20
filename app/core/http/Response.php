@@ -8,32 +8,49 @@
 
 namespace layer\core\http;
 
+use layer\core\utils\Logger;
+
 class Response
 {
-    /***
+    /**
      * @var int $responseCode
      */
-    private $responseCode;
-    /***
-     * @var mixed $content
+    private $responseCode = IHttpCodes::OK;
+    /**
+     * @var string $contentType
+     */
+    private $contentType = IHttpContentType::HTML;
+    /**
+     * @var bool $compression
+     */
+    private $compression = false;
+    /**
+     * @var bool $minified
+     */
+    private $minified = true;
+    /**
+     * @var string $content
      */
     private $content;
 
-    //TODO : add layout with views attribute ?
+    private $headers = [];
 
-    private $headers;
-
-    private $data;
+    private $data = [];
 
     private $responseTime;
 
     private $headersSent = false;
 
-    public function __construct()
+    private $responseSent = false;
+    /**
+     * @var Request
+     */
+    private static $instance;
+
+    public static function getInstance() : Response
     {
-        $this->responseCode = IHttpCodes::OK;
-        $this->headers = [];
-        $this->data = [];
+        if(self::$instance == null) self::$instance = new Response();
+        return self::$instance;
     }
 
     public function putHeader($key, $value)
@@ -54,24 +71,35 @@ class Response
     {
         return $this->responseCode;
     }
-
-    public function putData($key, $value) {
+    /**
+     * @param string $key
+     * @param $value
+     */
+    public function putData(string $key, $value) {
         $this->data[$key] = $value;
     }
-
+    /**
+     * @param array|object $array
+     */
     public function setDataArray($array) {
         $this->data = $array;
     }
-
+    /**
+     * @return array|object
+     */
     public function getData() {
         return $this->data;
     }
-
-    public function setContent($content) {
+    /**
+     * @param string $content
+     */
+    public function setContent(string $content) {
         $this->content = $content;
     }
-
-    public function getContent() {
+    /**
+     * @return string
+     */
+    public function getContent() : string {
         return $this->content;
     }
 
@@ -81,20 +109,102 @@ class Response
     }
 
     public function sendHeaders() {
-        HttpHeaders::responseHeader($this->getResponseCode());
-        $this->putHeader(IHttpHeaders::X_Powered_By,'Hello there');
-        foreach ($this->getHeaders() as $h => $v) {
-            header($h.":".$v, true, $this->getResponseCode());
+        if(!headers_sent()) {
+            HttpHeaders::responseHeader($this->getResponseCode());
+            $this->putHeader(IHttpHeaders::X_Powered_By, 'Hello there');
+            if($this->contentType)
+                $this->putHeader(IHttpHeaders::Content_Type, $this->contentType);
+            foreach ($this->getHeaders() as $h => $v) {
+                header($h.": ".$v, true, $this->getResponseCode());
+            }
+            $this->headersSent = true;
         }
-        $this->headersSent = true;
     }
 
     public function sendResponse() {
-        if(!$this->headersSent) {
-            $this->sendHeaders();
+        if(!$this->responseSent)
+        {
+            $content = $this->getContent();
+            if($this->compression)
+            {
+                $content = gzencode($content, 1);
+                $this->putHeader(IHttpHeaders::Content_Encoding, 'gzip');
+                $this->putHeader(IHttpHeaders::Content_Length, strlen($content));
+            }
+            if(!headers_sent())
+            {
+                $this->sendHeaders();
+            }
+            if($this->minified)
+            {
+                echo $this->minify($content);
+            }
+            else
+            {
+                echo $content;
+            }
+            $this->responseTime = microtime(true);
+            $this->responseSent = true;
         }
-        echo $this->getContent();
-        $this->responseTime = microtime(true);
     }
 
+    private function minify($data) {
+        return preg_replace('/^[[:blank:]]+/m', '', $data);
+    }
+
+    /**
+     * @return string
+     */
+    public function getContentType(): string
+    {
+        return $this->contentType;
+    }
+
+    /**
+     * @param string $contentType
+     */
+    public function setContentType(string $contentType)
+    {
+        $this->contentType = $contentType;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isCompression(): bool
+    {
+        return $this->compression;
+    }
+
+    /**
+     * @param bool $compression
+     */
+    public function setCompression(bool $compression)
+    {
+        $this->compression = $compression;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isMinified(): bool
+    {
+        return $this->minified;
+    }
+
+    /**
+     * @param bool $minified
+     */
+    public function setMinified(bool $minified): void
+    {
+        $this->minified = $minified;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isResponseSent(): bool
+    {
+        return $this->responseSent;
+    }
 }

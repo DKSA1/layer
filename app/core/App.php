@@ -9,8 +9,8 @@
 namespace layer\core;
 
 use layer\core\config\Configuration;
+use layer\core\http\Request;
 use layer\core\route\Router;
-use layer\core\utils\Logger;
 
 
 class App
@@ -24,6 +24,14 @@ class App
      * @var Router $router
      */
     private $router;
+    /**
+     * @var callable $appErrorCallback
+     */
+    private $appErrorCallback;
+    /**
+     * @var callable $appFinallyCallback
+     */
+    private $appFinallyCallback;
 
 
     public static function getInstance() : App
@@ -34,26 +42,36 @@ class App
 
     private function __construct()
     {
-        // TRY CATCH APP
-        $this->startTime = microtime(true);
-
         define("PATH",rtrim($_SERVER['SCRIPT_FILENAME'],"index.php"));
 
         Configuration::load();
 
         $this->registerGlobals();
 
-        $this->router = Router::getInstance();
-
         //$this->builder = EntityBuilder::getInstance();
+    }
+
+    public function handleRequest() {
+        $this->startTime = microtime(true);
+
+        $request = Request::getInstance();
+
+        $this->router = Router::getInstance($request);
 
         $response = $this->router->handleRequest();
 
-        $response->sendResponse();
+        if($response)
+        {
+            $response->sendResponse();
 
-        $d = new \DateTime();
-        $d->setTimestamp($response->getResponseTime() - $this->startTime);
-        Logger::write("[".$response->getResponseCode()."] Serving content in ".$d->format('s.u')." ms");
+            if($this->appFinallyCallback)
+                call_user_func_array($this->appFinallyCallback, [$response]);
+        }
+        else
+        {
+            if($this->appErrorCallback)
+                call_user_func_array($this->appErrorCallback, [$request]);
+        }
     }
 
     private function registerGlobals(){
@@ -70,4 +88,24 @@ class App
         define("APP_LIB",APP_ROOT."app/lib");
     }
 
+    /**
+     * @param $appErrorCallback
+     */
+    public function setAppErrorCallback($appErrorCallback)
+    {
+        if(is_callable($appErrorCallback)) {
+            $this->appErrorCallback = $appErrorCallback;
+        }
+    }
+
+    /**
+     * @param $appFinallyCallback
+     */
+    public function setAppFinallyCallback($appFinallyCallback)
+    {
+        if(is_callable($appFinallyCallback)) {
+            $this->appFinallyCallback = $appFinallyCallback;
+        }
+
+    }
 }

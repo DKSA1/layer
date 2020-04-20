@@ -1,5 +1,8 @@
 <?php
 
+use layer\core\http\IHttpMethods;
+use layer\core\http\IHttpContentType;
+
 require_once(PATH . 'app/lib/addendum/annotations.php');
 
 // TODO : divide class in different files
@@ -68,15 +71,6 @@ class Controller extends MVCAnnotation
      * @var string
      */
     public $layoutName = null;
-
-    public function verifyRouteNames() {
-        $routeNames = [];
-        foreach ($this->routeNames as $routeName) {
-            if(preg_match('/^[a-zA-Z0-9]{1,}$/',$routeName))
-                $routeNames[] = strtolower($routeName);
-        }
-        return $routeNames;
-    }
 }
 
 /** @Target("method") */
@@ -87,9 +81,9 @@ class Action extends MVCAnnotation
      */
     public $routeTemplate;
     /**
-     * @var \layer\core\http\IHttpMethods[]
+     * @var string[]
      */
-    public $methods = [\layer\core\http\IHttpMethods::POST,\layer\core\http\IHttpMethods::GET];
+    public $methods = [IHttpMethods::POST, IHttpMethods::GET];
     /**
      * @var bool
      */
@@ -114,17 +108,10 @@ class Action extends MVCAnnotation
        return in_array(strtolower($method),$this->methods);
     }
 
-    public function verifyRouteNames() {
-        $routeNames = [];
-        foreach ($this->routeNames as $routeName) {
-            if(preg_match('/^[a-zA-Z0-9]+$/',$routeName))
-               $routeNames[] = strtolower($routeName);
-        }
-        return $routeNames;
-    }
-
     public function verifyMethods() {
-        return array_uintersect($this->methods,\layer\core\http\IHttpMethods::ALL, function ($v1, $v2) {
+        $this->methods = array_map('strtolower', $this->methods);
+        sort($this->methods);
+        return array_uintersect($this->methods, IHttpMethods::ALL, function ($v1, $v2) {
             return strcasecmp($v1, $v2);
         });
     }
@@ -179,6 +166,14 @@ class ApiController extends MVCAnnotation
      * @var string[]
      */
     public $filters = [];
+    /**
+     * @var string $responseType
+     */
+    public $responseType = 'JSON';
+    /**
+     * @var string
+     */
+    public $defaultAction = '/';
 }
 
 /** @Target("method") */
@@ -189,9 +184,9 @@ class ApiAction extends MVCAnnotation
      */
     public $routeTemplate;
     /**
-     * @var \layer\core\http\IHttpMethods[]
+     * @var string[]
      */
-    public $methods = [\layer\core\http\IHttpMethods::POST,\layer\core\http\IHttpMethods::GET];
+    public $methods = [IHttpMethods::GET];
     /**
      * @var bool
      */
@@ -200,5 +195,35 @@ class ApiAction extends MVCAnnotation
      * @var string[]
      */
     public $filters = [];
+    /**
+     * @var string $responseType
+     */
+    public $responseType = 'JSON';
+
+    public function verifyMethods() {
+        $this->methods = array_map('strtolower', $this->methods);
+        sort($this->methods);
+        return array_uintersect($this->methods, IHttpMethods::ALL, function ($v1, $v2) {
+            return strcasecmp($v1, $v2);
+        });
+    }
 }
+
+
+/** @Target("class") */
+class ApiErrorController extends Annotation {}
+
+/** @Target("method") */
+class ApiErrorAction extends Annotation {
+    /**
+     * @var string[]
+     */
+    public $errorCodes = [];
+    /**
+     * @var bool
+     */
+    public $mapped = true;
+}
+
+
 

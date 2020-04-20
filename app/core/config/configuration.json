@@ -28,6 +28,8 @@
   "environment" : {
       "current" : "dev",
       "dev": {
+        "routeTemplate" : "",
+        "apiRouteTemplate" : "api/",
         "log": true,
         "logTemplate" : "[{request_datetime}][{environment}][{client_ip} {client_browser} {client_os}][{request_method} {request_resource}]:{message}",
         "buildRoutesMap": true,
@@ -36,6 +38,8 @@
         "buildSiteMap": false
       },
       "prod": {
+        "routeTemplate" : "",
+        "apiRouteTemplate" : "api/",
         "log": true,
         "logTemplate" : "[{request_datetime}][{environment}][{client_ip} {client_browser} {client_os}][{request_method} {request_resource}]:{message}",
         "buildRoutesMap": false,
