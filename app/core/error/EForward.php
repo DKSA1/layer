@@ -1,4 +1,5 @@
 <?php
+
 namespace layer\core\error;
 
 use Throwable;
@@ -6,35 +7,21 @@ use Throwable;
 class EForward extends ELayer
 {
     /**
-     * @var int
-     */
-    private $forwardHttpCode;
-    /**
      * @var string
      */
-    private $forwardLocation;
+    private $internalRoute;
 
-    public function __construct($httpCode, $location, $message = "", $code = 0, Throwable $previous = null)
+    public function __construct($internalRoute, $message = "", $code = 0, Throwable $previous = null)
     {
         parent::__construct($message, $code, $previous);
-        $this->forwardHttpCode = $httpCode;
-        $this->forwardLocation = $location;
-    }
-
-    /**
-     * @return int
-     */
-    public function getForwardHttpCode(): int
-    {
-        return $this->forwardHttpCode;
+        $this->internalRoute = $internalRoute;
     }
 
     /**
      * @return string
      */
-    public function getForwardLocation(): string
+    public function getInternalRoute(): string
     {
-        return $this->forwardLocation;
+        return $this->internalRoute;
     }
-
 }

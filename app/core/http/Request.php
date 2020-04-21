@@ -77,6 +77,14 @@ class Request
      */
     private $app;
     /**
+     * @var string[] $routeParameters
+     */
+    private $routeParameters = [];
+    /**
+     * @var bool $forwarded
+     */
+    private $forwarded = false;
+    /**
      * @var Request
      */
     private static $instance;
@@ -275,28 +283,14 @@ class Request
         }
     }
 
-    /**
-     *
-     */
-    public function getControllerParameters() {
-
-    }
-
-    /**
-     *
-     */
-    public function getActionParameters() {
-
-    }
-
-    public function getHeader($name)
+    public function getHeader($name): array
     {
         $name = strtoupper($name);
         if(array_key_exists("HTTP_".$name, $_SERVER))
         {
             return explode(',',$_SERVER["HTTP_".$name]);
         }
-        return null;
+        return [];
     }
 
     /**
@@ -397,7 +391,7 @@ class Request
     /**
      * @return string
      */
-    public function getClientIp(): string
+    public function getClientIp()
     {
         return $this->clientIp;
     }
@@ -405,7 +399,7 @@ class Request
     /**
      * @return int
      */
-    public function getClientPort(): int
+    public function getClientPort()
     {
         return $this->clientPort;
     }
@@ -413,7 +407,7 @@ class Request
     /**
      * @return string
      */
-    public function getServerIp(): string
+    public function getServerIp()
     {
         return $this->serverIp;
     }
@@ -421,7 +415,7 @@ class Request
     /**
      * @return int
      */
-    public function getServerPort(): int
+    public function getServerPort()
     {
         return $this->serverPort;
     }
@@ -429,7 +423,7 @@ class Request
     /**
      * @return int
      */
-    public function getRequestTime(): int
+    public function getRequestTime()
     {
         return $this->requestTime;
     }
@@ -445,7 +439,7 @@ class Request
     /**
      * @return string
      */
-    public function getApp(): string
+    public function getApp()
     {
         return $this->app;
     }
@@ -453,7 +447,7 @@ class Request
     /**
      * @return string
      */
-    public function getClientBrowser(): string
+    public function getClientBrowser()
     {
         return $this->clientBrowser;
     }
@@ -461,9 +455,25 @@ class Request
     /**
      * @return string
      */
-    public function getClientOS(): string
+    public function getClientOS()
     {
         return $this->clientOS;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getRouteParameters(): array
+    {
+        return $this->routeParameters;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isForwarded(): bool
+    {
+        return $this->forwarded;
     }
 
 }

@@ -8,8 +8,6 @@
 
 namespace layer\core\http;
 
-use layer\core\utils\Logger;
-
 class Response
 {
     /**
@@ -27,20 +25,29 @@ class Response
     /**
      * @var bool $minified
      */
-    private $minified = true;
+    private $minified = false;
     /**
-     * @var string $content
+     * @var string[] $headers
      */
-    private $content;
-
     private $headers = [];
+    /**
+     * @var string $messageBody
+     */
+    private $messageBody;
 
+    // todo : remove this
     private $data = [];
-
+    /**
+     * @var float
+     */
     private $responseTime;
-
+    /**
+     * @var bool
+     */
     private $headersSent = false;
-
+    /**
+     * @var bool
+     */
     private $responseSent = false;
     /**
      * @var Request
@@ -64,7 +71,10 @@ class Response
     }
 
     public function setResponseCode(int $code) {
-        $this->responseCode = $code;
+        if(preg_match('/^[1-5][0-9][0-9]$/', strval($code)))
+        {
+            $this->responseCode = $code;
+        }
     }
 
     public function getResponseCode()
@@ -91,16 +101,16 @@ class Response
         return $this->data;
     }
     /**
-     * @param string $content
+     * @param string $messageBody
      */
-    public function setContent(string $content) {
-        $this->content = $content;
+    public function setMessageBody(string $messageBody) {
+        $this->messageBody = $messageBody;
     }
     /**
      * @return string
      */
-    public function getContent() : string {
-        return $this->content;
+    public function getMessageBody() {
+        return $this->messageBody;
     }
 
     public function getResponseTime()
@@ -109,12 +119,14 @@ class Response
     }
 
     public function sendHeaders() {
-        if(!headers_sent()) {
+        if(!headers_sent())
+        {
             HttpHeaders::responseHeader($this->getResponseCode());
             $this->putHeader(IHttpHeaders::X_Powered_By, 'Hello there');
             if($this->contentType)
                 $this->putHeader(IHttpHeaders::Content_Type, $this->contentType);
-            foreach ($this->getHeaders() as $h => $v) {
+            foreach ($this->getHeaders() as $h => $v)
+            {
                 header($h.": ".$v, true, $this->getResponseCode());
             }
             $this->headersSent = true;
@@ -124,38 +136,50 @@ class Response
     public function sendResponse() {
         if(!$this->responseSent)
         {
-            $content = $this->getContent();
-            if($this->compression)
-            {
-                $content = gzencode($content, 1);
-                $this->putHeader(IHttpHeaders::Content_Encoding, 'gzip');
-                $this->putHeader(IHttpHeaders::Content_Length, strlen($content));
-            }
+            $content = $this->compress($this->minify($this->getMessageBody()));
+
             if(!headers_sent())
             {
                 $this->sendHeaders();
             }
-            if($this->minified)
-            {
-                echo $this->minify($content);
-            }
-            else
-            {
-                echo $content;
-            }
+
+            echo $content;
+
             $this->responseTime = microtime(true);
             $this->responseSent = true;
         }
     }
 
+    /**
+     * @param $data
+     * @return string
+     */
     private function minify($data) {
-        return preg_replace('/^[[:blank:]]+/m', '', $data);
+        if($this->minified) {
+            return str_replace(array("\r\n","\r","\n"),"", preg_replace('/^[[:blank:]]+/m', '', $data));
+        }
+        return $data;
+    }
+
+    /**
+     * @param $data
+     * @return string
+     */
+    private function compress($data) {
+        if($this->compression)
+        {
+            $content = gzencode($data, 1);
+            $this->putHeader(IHttpHeaders::Content_Encoding, 'gzip');
+            $this->putHeader(IHttpHeaders::Content_Length, strlen($content));
+            return $content;
+        }
+        return $data;
     }
 
     /**
      * @return string
      */
-    public function getContentType(): string
+    public function getContentType()
     {
         return $this->contentType;
     }
@@ -181,7 +205,8 @@ class Response
      */
     public function setCompression(bool $compression)
     {
-        $this->compression = $compression;
+        if($compression && in_array('gzip', Request::getInstance()->getHeader(IHttpHeaders::Accept_Encoding)))
+            $this->compression = $compression;
     }
 
     /**
@@ -195,7 +220,7 @@ class Response
     /**
      * @param bool $minified
      */
-    public function setMinified(bool $minified): void
+    public function setMinified(bool $minified)
     {
         $this->minified = $minified;
     }

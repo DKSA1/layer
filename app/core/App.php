@@ -42,16 +42,16 @@ class App
 
     private function __construct()
     {
-        define("PATH",rtrim($_SERVER['SCRIPT_FILENAME'],"index.php"));
+        define("PATH", rtrim($_SERVER['SCRIPT_FILENAME'],"index.php"));
 
         Configuration::load();
 
         $this->registerGlobals();
-
         //$this->builder = EntityBuilder::getInstance();
     }
 
     public function handleRequest() {
+
         $this->startTime = microtime(true);
 
         $request = Request::getInstance();
@@ -82,10 +82,11 @@ class App
             define(strtoupper($c),$v);
         }
         define("APP_ROOT",rtrim($_SERVER["PHP_SELF"],"index.php"));
-        define("APP_PUBLIC",APP_ROOT."public");
-        define("APP_SERVICES",APP_ROOT."app/services");
-        define("APP_CORE",APP_ROOT."app/core");
-        define("APP_LIB",APP_ROOT."app/lib");
+        // TODO : change with PATH_
+        // define("APP_PUBLIC", APP_ROOT."public");
+        // define("APP_SERVICES",APP_ROOT."app/services");
+        // define("APP_CORE",APP_ROOT."app/core");
+        // define("APP_LIB",APP_ROOT."app/lib");
     }
 
     /**

@@ -17,9 +17,8 @@ class Logger
     public static $request;
 
     static function write($message, $template = NULL) {
-        if(Configuration::get("environment/".Configuration::$environment."/log")) {
+        if(Configuration::get("environment/".Configuration::$environment."/log", false)) {
             if(self::$request) {
-                try {
                     $log = $template ?? Configuration::get("environment/".Configuration::$environment."/logTemplate");
                     $date = date('Y-m-d');
                     $log = str_replace("{request_datetime}", date('Y-m-d H:i:s', self::$request->getRequestTime()), $log);
@@ -38,9 +37,6 @@ class Logger
                         mkdir(Configuration::get("locations/logs"),0777, true);
                     }
                     file_put_contents(Configuration::get("locations/logs")."/log_$date.txt", $log, FILE_APPEND);
-                } catch (\Error $e) {
-                    throw new EConfiguration('An error occured during the log process', IHttpCodes::InternalServerError);
-                }
             }
         }
     }

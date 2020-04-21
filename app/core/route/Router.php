@@ -10,11 +10,13 @@ namespace layer\core\route;
 use layer\core\config\Configuration;
 use layer\core\error\EConfiguration;
 use layer\core\error\EForward;
+use layer\core\error\ERedirect;
 use layer\core\error\ELayer;
 use layer\core\error\EMethod;
 use layer\core\error\EParameter;
 use layer\core\error\ERoute;
 use layer\core\http\HttpHeaders;
+use layer\core\http\IHttpCodes;
 use layer\core\http\IHttpContentType;
 use layer\core\http\IHttpHeaders;
 use layer\core\http\Request;
@@ -113,6 +115,8 @@ class Router {
             return $this->lookupRoute($location);
         } catch(EForward $e) {
             return $this->handleForward($e);
+        } catch(ERedirect $e) {
+            return $this->handleRedirect($e);
         } catch(ELayer $e) {
             return $this->handleError($e);
         }
@@ -198,26 +202,25 @@ class Router {
     }
 
     private function initializeControllerAction($controllerMetaData, $actionMetaData, $actionParams = [], $controllerParams = []) {
-        if (file_exists($controllerMetaData['path'])) {
+        if (file_exists($controllerMetaData['path']))
+        {
             $this->sendCORS($actionMetaData);
-            if(in_array(strtolower($this->request->getRequestMethod()), $actionMetaData['request_methods'])) {
+            // check parameters
+            $actionParameters = $this->checkParameters($actionParams, $actionMetaData['parameters']);
+            $controllerParameters = $this->checkParameters($controllerParams, $controllerMetaData['parameters']);
+            // set params in request
+            $reflectionRequest = new \ReflectionClass($this->request);
+            $propertyRequest = $reflectionRequest->getProperty('routeParameters');
+            $propertyRequest->setAccessible(true);
+            $propertyRequest->setValue($this->request, ["global" => [], "controller" => $controllerParameters, "action" => $actionParameters]);
+            if(in_array(strtolower($this->request->getRequestMethod()), $actionMetaData['request_methods']))
+            {
                 $this->applyFilters($controllerMetaData['filters_name']);
                 require_once $controllerMetaData['path'];
                 $reflectionController = new \ReflectionClass($controllerMetaData['namespace']);
-                if($reflectionController->hasMethod($actionMetaData['method_name'])) {
+                if($reflectionController->hasMethod($actionMetaData['method_name']))
+                {
                     $this->applyFilters($actionMetaData['filters_name']);
-                    // check controller parameters
-                    $controllerParameters = [];
-                    foreach ($controllerMetaData['parameters'] as $param) {
-                        $parameter = array_shift($controllerParams);
-                        if(isset($parameter) && $parameter != "") {
-                            $controllerParameters[$param['name']] = $parameter;
-                        } else if($param['default'] != null || $param['allows_null'] == true) {
-                            $controllerParameters[$param['name']] = $param['default'];
-                        } else {
-                            throw new EParameter("Required controller parameter {$param['name']} is missing", HttpHeaders::BadRequest);
-                        }
-                    }
                     $this->controller = $reflectionController->newInstanceArgs($controllerParameters);
                     // set viewProperty for controller
                     if($this->controller instanceof Controller)
@@ -229,29 +232,18 @@ class Router {
                         $actionViewProperty->setContentView($actionMetaData['view_name']);
                         $property->setValue($this->controller, $actionViewProperty);
                     }
-                    // check action parameters
-                    $actionParameters = [];
-                    foreach ($actionMetaData['parameters'] as $param) {
-                        $parameter = array_shift($actionParams);
-                        if(isset($parameter) && $parameter != "") {
-                            $actionParameters[$param['name']] = $parameter;
-                        } else if($param['default'] != null || $param['allows_null'] == true) {
-                            $actionParameters[$param['name']] = $param['default'];
-                        } else {
-                            throw new EParameter("Required action parameter {$param['name']} is missing", HttpHeaders::BadRequest);
-                        }
-                    }
                     $reflectionMethod = $reflectionController->getMethod($actionMetaData['method_name']);
-                    $result = $reflectionMethod->invokeArgs($this->controller, $actionParameters);
+                    $result = $reflectionMethod->invokeArgs($this->controller, ['helloworld', 1]); // $actionParameters
                     if($result != null)
                     {
                         if(is_array($result) || is_object($result))
                             $this->response->setDataArray($result);
                         else
-                            $this->response->setContent(strval($result));
+                            $this->response->setMessageBody(strval($result));
                     }
                     $this->applyFilters($actionMetaData['filters_name']);
                     $this->applyFilters($controllerMetaData['filters_name']);
+                    // TODO : replace this with viewproperty
                     if($actionMetaData['view_name'])
                     {
                         $layoutName = $actionMetaData['layout_name'];
@@ -261,13 +253,15 @@ class Router {
                     else
                     {
                         $this->response->setContentType(IHttpContentType::JSON);
-                        $this->response->setContent(json_encode($this->response->getData()));
+                        $this->response->setMessageBody(json_encode($this->response->getData()));
                     }
                     return $this->response;
                 }
-            } else
+            }
+            else
                 throw new EMethod("Method {$this->request->getRequestMethod()} not allowed",HttpHeaders::BadRequest);
-        } else
+        }
+        else
             throw new EConfiguration("Requested script not found",HttpHeaders::InternalServerError);
     }
 
@@ -298,11 +292,12 @@ class Router {
         $this->response->setResponseCode($e->getCode());
         $result = $controller->$method();
         // overwrite response
-        if($result != null) {
+        if($result != null)
+        {
             if(is_array($result) || is_object($result))
                 $this->response->setDataArray($result);
             else
-                $this->response->setContent(strval($result));
+                $this->response->setMessageBody(strval($result));
         }
         if($controllerMetaData && $actionMetaData['view_name']) {
             $layoutName = $actionMetaData['layout_name'];
@@ -310,7 +305,7 @@ class Router {
             $this->generateLayout($layoutName, $viewTemplate);
         } else {
             $this->response->setContentType(IHttpContentType::JSON);
-            $this->response->setContent(json_encode($this->response->getData()));
+            $this->response->setMessageBody(json_encode($this->response->getData()));
         }
         return $this->response;
     }
@@ -329,7 +324,7 @@ class Router {
             $view = new View($this->shared['view'][$viewName]);
             $layout->appendView($view);
         }
-        $this->response->setContent($layout->render($this->response->getData()));
+        $this->response->setMessageBody($layout->render($this->response->getData()));
     }
 
     private function applyFilters($names) {
@@ -347,7 +342,7 @@ class Router {
                     if(is_array($result) || is_object($result))
                         $this->response->setDataArray($result);
                     else
-                        $this->response->setContent(strval($result));
+                        $this->response->setMessageBody(strval($result));
                 }
             }
         }
@@ -356,11 +351,33 @@ class Router {
     private function handleForward(EForward $e) {
         unset($this->controller);
         $this->filters = [];
-        $this->response->putHeader(IHttpHeaders::Location, "/".$this->request->getApp()."/".$e->getForwardLocation());
-        $this->response->setResponseCode($e->getForwardHttpCode());
-        // TODO : replace method by method for the new location
-        // TODO : pass parameters
-        return $this->handleRequest($e->getForwardLocation());
+        // set forwarded field to true
+        $reflectionRequest = new \ReflectionClass($this->request);
+        $propertyRequest = $reflectionRequest->getProperty('forwarded');
+        $propertyRequest->setAccessible(true);
+        $propertyRequest->setValue($this->request, true);
+        return $this->handleRequest($e->getInternalRoute());
+    }
+
+    private function handleRedirect(ERedirect $e) {
+        $this->response->putHeader(IHttpHeaders::Location, $e->getLocation());
+        $this->response->setResponseCode($e->getHttpCode());
+        return $this->response;
+    }
+
+    private function checkParameters($parameters, $parametersInfo) {
+        $checkedParameters = [];
+        foreach ($parametersInfo as $param) {
+            $parameter = array_shift($parameters);
+            if(isset($parameter) && $parameter != "") {
+                $checkedParameters[$param['name']] = $parameter;
+            } else if($param['default'] != null || $param['allows_null'] == true) {
+                $checkedParameters[$param['name']] = $param['default'];
+            } else {
+                throw new EParameter("Required parameter {$param['name']} is missing", HttpHeaders::BadRequest);
+            }
+        }
+        return $checkedParameters;
     }
 
 }

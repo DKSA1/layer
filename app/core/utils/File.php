@@ -119,6 +119,11 @@ class File
 
     public function move($newPath) {
         if($this->deleted) return null;
+        if(!file_exists(dirname($newPath))) {
+            if(!mkdir(dirname($newPath),0777, true))
+                return false;
+        }
+        move_uploaded_file($this->absolutePath, $newPath);
     }
 
     public function delete() {
