@@ -1,7 +1,6 @@
 <?php
 
 use layer\core\http\IHttpMethods;
-use layer\core\http\IHttpContentType;
 
 require_once(PATH . 'app/lib/addendum/annotations.php');
 
@@ -104,11 +103,13 @@ class Action extends MVCAnnotation
      * @param $method
      * @return bool
      */
-    public function hasRequestMethod($method) {
+    public function hasRequestMethod($method)
+    {
        return in_array(strtolower($method),$this->methods);
     }
 
-    public function verifyMethods() {
+    public function verifyMethods()
+    {
         $this->methods = array_map('strtolower', $this->methods);
         sort($this->methods);
         return array_uintersect($this->methods, IHttpMethods::ALL, function ($v1, $v2) {
@@ -224,6 +225,46 @@ class ApiErrorAction extends Annotation {
      */
     public $mapped = true;
 }
+
+/** @Target("method") */
+class Sitemap extends Annotation {
+
+    /**
+     * @var float
+     */
+    public $sitemapPriority = 0.5;
+    /**
+     * @var string
+     */
+    public $sitemapChangefreq = 'Always';
+
+    public function getSitemapPriority()
+    {
+        if($this->sitemapPriority == null)
+            return null;
+        if($this->sitemapPriority >= 0.0 && $this->sitemapPriority <= 1.0)
+        {
+            return $this->sitemapPriority;
+        }
+        else
+        {
+            return 0.5;
+        }
+    }
+
+    public function getSitemapChangefreq()
+    {
+        if($this->sitemapChangefreq == null)
+            return null;
+        $changefreq = strtolower($this->sitemapChangefreq);
+        if(in_array($changefreq, ['always', 'never', 'hourly', 'daily', 'weekly', 'monthly', 'yearly']))
+        {
+            return ucfirst($changefreq);
+        }
+        return null;
+    }
+}
+
 
 
 

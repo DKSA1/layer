@@ -85,6 +85,10 @@ class Request
      */
     private $forwarded = false;
     /**
+     * @var string[]
+     */
+    private $_PUT = null;
+    /**
      * @var Request
      */
     private static $instance;
@@ -263,21 +267,37 @@ class Request
     public function getUploadedFiles() : array
     {
         $files = [];
-        foreach ($_FILES as $fileName) {
-            $f = File::getInstance($fileName['tmp_name'], $fileName['name'], $fileName['type']);
-            array_push($files, $f);
+        foreach ($_FILES as $key => $file) {
+            if(is_array($file['name'])) {
+                $files[$key] = [];
+                foreach ($file['name'] as $idx => $value) {
+                    $f = File::getInstance($file['tmp_name'][$idx], $file['name'][$idx], $file['type'][$idx]);
+                    array_push($files[$key], $f);
+                }
+            } else {
+                $files[$key] = File::getInstance($file['tmp_name'], $file['name'], $file['type']);
+            }
         }
         return $files;
     }
 
     /**
      * @param $name string
-     * @return File
+     * @return File|File[]
      */
-    public function getUploadedFile($name) : File
+    public function getUploadedFile($name)
     {
         if(array_key_exists($name, $_FILES)) {
-            return File::getInstance($_FILES[$name]['tmp_name'],$_FILES[$name]['name'], $_FILES[$name]['type']);
+            if(is_array($_FILES[$name]['name'])) {
+                $files = [];
+                foreach ($_FILES[$name]['name'] as $idx => $value) {
+                    $f = File::getInstance($_FILES[$name]['tmp_name'][$idx], $_FILES[$name]['name'][$idx], $_FILES[$name]['type'][$idx]);
+                    array_push($files, $f);
+                }
+                return $files;
+            } else {
+                return File::getInstance($_FILES[$name]['tmp_name'],$_FILES[$name]['name'], $_FILES[$name]['type']);
+            }
         } else {
             return null;
         }
@@ -285,7 +305,7 @@ class Request
 
     public function getHeader($name): array
     {
-        $name = strtoupper($name);
+        $name = strtoupper(str_replace('-', '_', $name));
         if(array_key_exists("HTTP_".$name, $_SERVER))
         {
             return explode(',',$_SERVER["HTTP_".$name]);
@@ -474,6 +494,20 @@ class Request
     public function isForwarded(): bool
     {
         return $this->forwarded;
+    }
+
+    public function getPut($key = null) {
+        if(!$this->_PUT) {
+            parse_str(file_get_contents('php://input'),$this->_PUT);
+        }
+        if($key){
+            if(array_key_exists($key,$this->_PUT))
+                return $this->_PUT[$key];
+            else
+                return null;
+        }else{
+            return $this->_PUT;
+        }
     }
 
 }

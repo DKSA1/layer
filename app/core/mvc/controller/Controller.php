@@ -7,14 +7,14 @@
  */
 namespace layer\core\mvc\controller;
 
-use layer\core\mvc\view\ViewProperty;
+use layer\core\mvc\view\ViewManager;
 
 abstract class Controller extends CoreController {
 
     /**
-     * @var ViewProperty $actionViewProperty
+     * @var ViewManager $actionViewProperty
      */
-    protected $actionViewProperty;
+    protected $viewManager;
 
     public abstract function index();
 

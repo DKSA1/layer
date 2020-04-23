@@ -5,18 +5,11 @@ namespace layer\core\mvc\view;
 class Layout implements IView
 {
     /**
-     * @var string
-     */
-    private $layoutName;
-    /**
      * @var View[]
      */
     protected $views = [];
 
-    public function __construct($layoutName)
-    {
-        $this->layoutName = $layoutName;
-    }
+    public function __construct(){}
 
     public function appendView(IView $view): Layout
     {
@@ -45,14 +38,6 @@ class Layout implements IView
         }
 
         return ob_get_clean();
-    }
-
-    /**
-     * @return string
-     */
-    public function getLayoutName(): string
-    {
-        return $this->layoutName;
     }
 
 }

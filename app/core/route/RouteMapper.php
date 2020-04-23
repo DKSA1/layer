@@ -152,36 +152,35 @@ class RouteMapper
                             /**
                              * @var \Action|\ApiAction $actionAnnotation
                              */
-                            $actionAnnotation = $reflectionMethod->getAnnotation('Action');
-                            $isApi = false;
-                            if(!$actionAnnotation) {
-                                $isApi = true;
+                            if($isApi)
+                            {
                                 $actionAnnotation = $reflectionMethod->getAnnotation('ApiAction');
                             }
+                            else
+                            {
+                                $actionAnnotation = $reflectionMethod->getAnnotation('Action');
+                            }
 
-                            if($actionAnnotation->mapped) {
+                            if($actionAnnotation && $actionAnnotation->mapped) {
                                 // TODO : check if file exists in shared
                                 $actionRouteTemplateName = $actionAnnotation->verifyRouteTemplate() ? trim($actionAnnotation->verifyRouteTemplate(), '/') : strtolower($reflectionMethod->name);
                                 // for template and method to make the key unique for this action
 
                                 $actionRouteTemplate = implode("-",$actionAnnotation->verifyMethods())." ".$actionRouteTemplateName;
 
-                                if($defaultAction == $actionRouteTemplateName) {
+                                if($defaultAction == $reflectionMethod->name)
+                                {  // $actionRouteTemplateName
                                     $defaultAction = $actionRouteTemplate;
                                 }
 
                                 if(!$isApi) {
                                     $actionLayoutTemplate = $actionAnnotation->layoutName ?  $actionAnnotation->layoutName : $controllerLayoutTemplate;
                                     $actionLayoutTemplate = Configuration::get('layouts/'.$actionLayoutTemplate, false) ? $actionLayoutTemplate : null;
-                                }
-
-                                $actionFilters = array_diff(array_map("strtolower", $actionAnnotation->filters), $controllerFilters);
-
-                                if(!$isApi) {
                                     $actionView = $actionAnnotation->viewName ? $actionAnnotation->viewName : $reflectionMethod->name;
                                     $actionView = file_exists(dirname($controllersFile[basename($cNamespace)])."/view/$actionView.php") ? $actionView : null;
                                 }
 
+                                $actionFilters = array_diff(array_map("strtolower", $actionAnnotation->filters), $controllerFilters);
                                 $urlActionParameters = $actionAnnotation->grepRouteTemplateParameters();
                                 $actionParameters = [];
                                 /**
@@ -198,14 +197,19 @@ class RouteMapper
                                         "routeTemplatePosition" => is_int($urlPosition) ? $urlPosition : null
                                     ];
                                 }
+
                                 $routes[$controllerRouteTemplate]['actions'][$actionRouteTemplate] = [
                                     "method_name" => $reflectionMethod->name,
                                     "request_methods" => $actionAnnotation->verifyMethods(),
                                     "filters_name" => $actionFilters,
-                                    "view_name" => !$isApi ? $actionView : null,
-                                    "layout_name" => !$isApi ? $actionLayoutTemplate : null,
                                     "parameters" => $actionParameters
                                 ];
+
+                                if(!$isApi) {
+                                    $routes[$controllerRouteTemplate]['actions'][$actionRouteTemplate]['view_name'] = $actionView;
+                                    $routes[$controllerRouteTemplate]['actions'][$actionRouteTemplate]['layout_name'] = $actionLayoutTemplate;
+                                }
+
                             }
                         }
                     }
@@ -281,16 +285,51 @@ class RouteMapper
                             }
 
                             $routes[$errorKey]['actions'][$actionName] = [
-                                "method_name" => $reflectionMethod->name,
-                                "view_name" => !$isApiError ? $eActionView : null,
-                                "layout_name" => !$isApiError ? ($eActionView ? $eLayoutTemplate : null) : null
+                                "method_name" => $reflectionMethod->name
                             ];
+
+                            if(!$isApiError) {
+                                $routes[$errorKey]['actions'][$actionName]['view_name'] = $eActionView;
+                                $routes[$errorKey]['actions'][$actionName]['layout_name'] = $eActionView ? $eLayoutTemplate : null;
+                            }
                         }
                     }
                 }
             }
         }
-        file_put_contents('app/core/config/routes.json', json_encode($routes, JSON_PRETTY_PRINT));
+        file_put_contents('app/core/config/routes_'.Configuration::$environment.'.json', json_encode($routes, JSON_PRETTY_PRINT));
         return $routes;
+    }
+    
+
+    // TODO : remove this and annotation and create extension
+    private static function buildSiteMap($urls = [])
+    {
+        $host = trim(Configuration::get('environment/'.Configuration::$environment.'/host'),'/');
+        $dom = new \DOMDocument();
+        $dom->formatOutput = true;
+        $dom->encoding = 'UTF-8';
+        $dom->version = '1.0';
+        $urlset = $dom->createElement('urlset');
+        $urlset->setAttribute('xmlns','http://www.sitemaps.org/schemas/sitemap/0.9');
+        $urlset->setAttribute('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
+        $urlset->setAttribute('xsi:schemaLocation', 'http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd');
+        foreach ($urls as $url)
+        {
+            $url = $dom->createElement('url');
+            $loc = $dom->createElement('loc');
+            $loc->nodeValue = $host."/".$url;
+            $lastmod = $dom->createElement('lastmod');
+            $lastmod->nodeValue = date('Y-m-dTh:m:s');
+            $changefreq = $dom->createElement('changefreq');
+            $changefreq->nodeValue = 'Always';
+            $priority = $dom->createElement('priority');
+            $priority->nodeValue = 0.5;
+            $url->appendChild($loc);
+            $url->appendChild($lastmod);
+            $urlset->appendChild($url);
+        }
+        $dom->appendChild($urlset);
+        $dom->save(PATH.'/public/sitemap.xml');
     }
 }

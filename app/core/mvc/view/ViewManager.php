@@ -4,7 +4,7 @@ namespace layer\core\mvc\view;
 
 use layer\core\config\Configuration;
 
-class ViewProperty
+class ViewManager
 {
     /**
      * @var string $viewDirectory
@@ -26,17 +26,22 @@ class ViewProperty
      * @var string[] $afterViews
      */
     private $afterViews;
+    /**
+     * @var string[]
+     */
+    private $shared;
 
-    public static function create($pathToView) {
+    public static function build($pathToView, $shared) {
         if(file_exists($pathToView))
         {
-            return new ViewProperty($pathToView);
+            return new ViewManager($pathToView, $shared);
         }
         return null;
     }
 
-    private function __construct($pathToView)
+    private function __construct($pathToView, $shared)
     {
+        $this->shared = $shared;
         $this->afterViews = [];
         $this->beforeViews = [];
         $this->contentView = basename($pathToView,'.php');
@@ -50,7 +55,9 @@ class ViewProperty
             $this->layoutName = $layoutName;
             $this->beforeViews = Configuration::get("layouts/$layoutName/before", false);
             $this->afterViews = Configuration::get("layouts/$layoutName/after", false);
+            return true;
         }
+        return false;
     }
     /**
      * @return string
@@ -65,7 +72,7 @@ class ViewProperty
      */
     public function setLayoutName(string $layoutName)
     {
-        $this->loadLayout($layoutName);
+        return $this->loadLayout($layoutName);
     }
 
     public function addBeforeView($viewName, $position = null) {
@@ -79,7 +86,9 @@ class ViewProperty
             {
                 $this->beforeViews[] = $viewName;
             }
+            return true;
         }
+        return false;
     }
 
     public function removeBeforeView($viewName) {
@@ -87,7 +96,9 @@ class ViewProperty
         if($idx)
         {
             array_splice($this->beforeViews, $idx, 1);
+            return true;
         }
+        return false;
     }
 
     /**
@@ -114,7 +125,9 @@ class ViewProperty
         if(file_exists($this->viewDirectory."/$contentView.php"))
         {
             $this->contentView = $contentView;
+            return true;
         }
+        return false;
     }
 
     public function addAfterView($viewName, $position = null) {
@@ -128,7 +141,9 @@ class ViewProperty
             {
                 $this->afterViews[] = $viewName;
             }
+            return true;
         }
+        return false;
     }
 
     public function removeAfterView($viewName) {
@@ -136,7 +151,9 @@ class ViewProperty
         if($idx)
         {
             array_splice($this->afterViews, $idx, 1);
+            return true;
         }
+        return false;
     }
     /**
      * @return string[]
@@ -147,10 +164,23 @@ class ViewProperty
     }
 
     private function sharedViewExists($viewName) {
-        if(file_exists(Configuration::get('locations/shared',false)."/view/$viewName.php"))
+        if(array_key_exists($viewName, $this->shared) && file_exists($this->shared[$viewName]))
         {
             return true;
         }
         return false;
+    }
+
+    protected function generateView($data = [])
+    {
+        $compositeView = new Layout();
+        foreach ($this->beforeViews as $view) {
+            $compositeView->appendView(new View($this->shared[$view]));
+        }
+        $compositeView->appendView(new View($this->viewDirectory."/".$this->contentView.".php"));
+        foreach ($this->afterViews as $view) {
+            $compositeView->appendView(new View($this->shared[$view]));
+        }
+        return $compositeView->render($data);
     }
 }

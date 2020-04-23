@@ -28,32 +28,24 @@
   "environment" : {
       "current" : "dev",
       "dev": {
+        "host" : "http://localhost/Layer",
         "routeTemplate" : "",
-        "apiRouteTemplate" : "api/",
-        "log": true,
-        "logTemplate" : "[{request_datetime}][{environment}][{client_ip} {client_browser} {client_os}][{request_method} {request_resource}]:{message}",
-        "buildRoutesMap": true,
-        "buildRelationalMap": false,
-        "buildSharedMap": true,
-        "buildSiteMap": false
-      },
-      "prod": {
-        "routeTemplate" : "",
-        "apiRouteTemplate" : "api/",
+        "apiRouteTemplate" : "api",
         "log": true,
         "logTemplate" : "[{request_datetime}][{environment}][{client_ip} {client_browser} {client_os}][{request_method} {request_resource}]:{message}",
         "buildRoutesMap": false,
-        "buildRelationalMap": false,
+        "buildSharedMap": false,
+        "buildSiteMap": false
+      },
+      "prod": {
+        "host" : "https://www.mysite.be",
+        "routeTemplate" : "",
+        "apiRouteTemplate" : "api",
+        "log": true,
+        "logTemplate" : "[{request_datetime}][{environment}][{client_ip} {client_browser} {client_os}][{request_method} {request_resource}]:{message}",
+        "buildRoutesMap": false,
         "buildSharedMap": false,
         "buildSiteMap": false
       }
-  },
-  "persistences" : {
-    "localhost" : {
-      "connectionString" : "mysql:host=localhost;root;;"
-    }
-  },
-  "cors" : {
-
   }
 }
