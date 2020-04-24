@@ -87,7 +87,7 @@ class Request
     /**
      * @var string[]
      */
-    private $_PUT = null;
+    private $_PUT = [];
     /**
      * @var Request
      */
@@ -112,9 +112,14 @@ class Request
         $this->serverIp = $_SERVER['SERVER_ADDR'];
         $this->serverPort = intval($_SERVER['SERVER_PORT']);
         $this->requestTime = $_SERVER['REQUEST_TIME_FLOAT'];
-        $this->requestData = array_merge($_GET, $_POST);
+        if(strtolower($this->requestMethod) === 'put')
+        {
+            parse_str(file_get_contents('php://input'),$this->_PUT);
+        }
+        $this->requestData = array_merge($_GET, $_POST, $this->_PUT);
         $this->https = (((isset($_SERVER['HTTPS'])) && (strtolower($_SERVER['HTTPS']) == 'on')) || ((isset($_SERVER['HTTP_X_FORWARDED_PROTO'])) && (strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) == 'https')));
         $this->asynchronousRequest = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
+
         $ua = " ".strtolower($_SERVER['HTTP_USER_AGENT']);
         if(strpos($ua, 'chrome/')) {
             if(strpos($ua, 'safari/')) {
@@ -497,9 +502,6 @@ class Request
     }
 
     public function getPut($key = null) {
-        if(!$this->_PUT) {
-            parse_str(file_get_contents('php://input'),$this->_PUT);
-        }
         if($key){
             if(array_key_exists($key,$this->_PUT))
                 return $this->_PUT[$key];

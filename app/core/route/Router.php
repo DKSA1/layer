@@ -412,16 +412,69 @@ class Router {
     private function checkParameters($parameters, $parametersInfo) {
         $checkedParameters = [];
         foreach ($parametersInfo as $param) {
-            $parameter = array_shift($parameters);
-            if(isset($parameter) && $parameter != "") {
-                $checkedParameters[$param['name']] = $parameter;
-            } else if($param['default'] != null || $param['allows_null'] == true) {
-                $checkedParameters[$param['name']] = $param['default'];
-            } else {
-                throw new EParameter("Required parameter [{$param['name']}] is missing", HttpHeaders::BadRequest);
+            if($param['internal'] == false)
+            {
+                $checkedParameters[$param['name']] = $this->initObjectParameter($param['type'], $this->request->getRequestData());
+            }
+            else
+            {
+                $parameter = array_shift($parameters);
+                if(isset($parameter) && $parameter != "")
+                {
+                    $checkedParameters[$param['name']] = $parameter;
+                }
+                else if($param['default'] != null || $param['allows_null'] == true)
+                {
+                    $checkedParameters[$param['name']] = $param['default'];
+                }
+                else
+                {
+                    throw new EParameter("Required parameter [{$param['name']}] is missing", HttpHeaders::BadRequest);
+                }
             }
         }
         return $checkedParameters;
+    }
+
+    private function initObjectParameter($class, $data = [])
+    {
+        $reflectionParameter = new \ReflectionClass($class);
+        $obj = $reflectionParameter->newInstanceWithoutConstructor();
+        foreach ($data as $key => $value)
+        {
+            try
+            {
+                if($reflectionParameter->hasMethod('set'.ucfirst($key)))
+                {
+                    $reflectionMethod = $reflectionParameter->getMethod('set'.ucfirst($key));
+                    if(count($reflectionMethod->getParameters()) >= 1 && $reflectionMethod->isPublic())
+                    {
+                        $reflectionMethodParameter = $reflectionMethod->getParameters()[0];
+                        if($reflectionMethodParameter->hasType())
+                        {
+                            $type = $reflectionMethodParameter->getType()."";
+                            if(!$reflectionMethodParameter->getType()->isBuiltin())
+                            {
+                                $reflectionMethod->invokeArgs($obj, [$this->initObjectParameter($type, $value)]);
+                            }
+                            else
+                            {
+                                $reflectionMethod->invokeArgs($obj, [$value]);
+                            }
+                        }
+                        else
+                        {
+                            $reflectionMethod->invokeArgs($obj, [$value]);
+                        }
+                    }
+                }
+            }
+            catch(\TypeError $e)
+            {
+
+            }
+        }
+        return $obj;
     }
 
 }

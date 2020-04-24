@@ -194,6 +194,7 @@ class RouteMapper
                                         "default" => $reflectionParameter->isDefaultValueAvailable() ? $reflectionParameter->getDefaultValue() : null,
                                         "allows_null" => $reflectionParameter->allowsNull(),
                                         "type" => $reflectionParameter->hasType() ? $reflectionParameter->getType()."" : null,
+                                        "internal" => $reflectionParameter->getClass() ? $reflectionParameter->getClass()->isInternal() : true,
                                         "routeTemplatePosition" => is_int($urlPosition) ? $urlPosition : null
                                     ];
                                 }
