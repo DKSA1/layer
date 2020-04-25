@@ -25,6 +25,7 @@ use layer\core\mvc\controller\ErrorController;
 use layer\core\mvc\filter\Filter;
 use layer\core\mvc\view\ViewManager;
 use layer\core\utils\Logger;
+use layer\core\utils\ObjectBuilder;
 
 class Router {
     /**
@@ -414,7 +415,7 @@ class Router {
         foreach ($parametersInfo as $param) {
             if($param['internal'] == false)
             {
-                $checkedParameters[$param['name']] = $this->initObjectParameter($param['type'], $this->request->getRequestData());
+                $checkedParameters[$param['name']] = ObjectBuilder::build($param['namespace'], $this->request->getRequestData(), $param['array']);
             }
             else
             {
@@ -423,7 +424,7 @@ class Router {
                 {
                     $checkedParameters[$param['name']] = $parameter;
                 }
-                else if($param['default'] != null || $param['allows_null'] == true)
+                else if($param['default'] != null || $param['nullable'] == true)
                 {
                     $checkedParameters[$param['name']] = $param['default'];
                 }
@@ -434,47 +435,6 @@ class Router {
             }
         }
         return $checkedParameters;
-    }
-
-    private function initObjectParameter($class, $data = [])
-    {
-        $reflectionParameter = new \ReflectionClass($class);
-        $obj = $reflectionParameter->newInstanceWithoutConstructor();
-        foreach ($data as $key => $value)
-        {
-            try
-            {
-                if($reflectionParameter->hasMethod('set'.ucfirst($key)))
-                {
-                    $reflectionMethod = $reflectionParameter->getMethod('set'.ucfirst($key));
-                    if(count($reflectionMethod->getParameters()) >= 1 && $reflectionMethod->isPublic())
-                    {
-                        $reflectionMethodParameter = $reflectionMethod->getParameters()[0];
-                        if($reflectionMethodParameter->hasType())
-                        {
-                            $type = $reflectionMethodParameter->getType()."";
-                            if(!$reflectionMethodParameter->getType()->isBuiltin())
-                            {
-                                $reflectionMethod->invokeArgs($obj, [$this->initObjectParameter($type, $value)]);
-                            }
-                            else
-                            {
-                                $reflectionMethod->invokeArgs($obj, [$value]);
-                            }
-                        }
-                        else
-                        {
-                            $reflectionMethod->invokeArgs($obj, [$value]);
-                        }
-                    }
-                }
-            }
-            catch(\TypeError $e)
-            {
-
-            }
-        }
-        return $obj;
     }
 
 }

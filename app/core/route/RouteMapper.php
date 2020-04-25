@@ -8,6 +8,8 @@ use layer\core\mvc\controller\ApiErrorController;
 use layer\core\mvc\controller\Controller;
 use layer\core\mvc\controller\ErrorController;
 use layer\core\mvc\filter\Filter;
+use layer\core\utils\DocCommentParser;
+use layer\core\utils\DocTypeInfo;
 
 class RouteMapper
 {
@@ -117,20 +119,26 @@ class RouteMapper
 
                     $urlControllerParameters = $controllerAnnotation->grepRouteTemplateParameters();
                     $controllerParameters = [];
+
+
                     if(count($urlControllerParameters)) {
                         $reflectionConstructor = $reflectionController->getConstructor();
+                        $docCommentsController = DocCommentParser::param($reflectionConstructor->getDocComment());
                         /**
                          * @var \ReflectionParameter $reflectionParameter
                          */
                         foreach ($reflectionConstructor->getParameters() as $reflectionParameter) {
-                            $urlPosition = array_search($reflectionParameter->getName(), $urlControllerParameters);
+                            // $urlPosition = array_search($reflectionParameter->getName(), $urlControllerParameters);
+                            $docInfo = isset($docCommentsController[$reflectionParameter->getName()]) ? DocTypeInfo::getDocType($docCommentsController[$reflectionParameter->getName()]) : null;
                             $controllerParameters[$reflectionParameter->getPosition()] = [
                                 "name" => $reflectionParameter->getName(),
                                 "required" => !$reflectionParameter->isOptional(),
                                 "default" => $reflectionParameter->isDefaultValueAvailable() ? $reflectionParameter->getDefaultValue() : null,
-                                "allows_null" => $reflectionParameter->allowsNull(),
-                                "type" => $reflectionParameter->hasType() ? $reflectionParameter->getType() . "" : null,
-                                "routeTemplatePosition" => is_int($urlPosition) ? $urlPosition : null
+                                "nullable" => $reflectionParameter->allowsNull(),
+                                "type" => $docInfo ? $docInfo->type : null,
+                                "array" => $docInfo ? $docInfo->isArray : null,
+                                "namespace" => $docInfo ? $docInfo->namespace : null,
+                                "internal" => $docInfo ? $docInfo->isInternal : true
                             ];
                         }
                     }
@@ -181,21 +189,24 @@ class RouteMapper
                                 }
 
                                 $actionFilters = array_diff(array_map("strtolower", $actionAnnotation->filters), $controllerFilters);
-                                $urlActionParameters = $actionAnnotation->grepRouteTemplateParameters();
+                                // $urlActionParameters = $actionAnnotation->grepRouteTemplateParameters();
                                 $actionParameters = [];
+                                $docCommentsAction = DocCommentParser::param($reflectionMethod->getDocComment());
                                 /**
                                  * @var \ReflectionParameter $reflectionParameter
                                  */
                                 foreach ($reflectionMethod->getParameters() as $reflectionParameter) {
-                                    $urlPosition = array_search($reflectionParameter->getName(), $urlActionParameters);
+                                    // $urlPosition = array_search($reflectionParameter->getName(), $urlActionParameters);
+                                    $docInfo = isset($docCommentsAction[$reflectionParameter->getName()]) ? DocTypeInfo::getDocType($docCommentsAction[$reflectionParameter->getName()]) : null;
                                     $actionParameters[$reflectionParameter->getPosition()] = [
                                         "name" => $reflectionParameter->getName(),
                                         "required" => !$reflectionParameter->isOptional(),
                                         "default" => $reflectionParameter->isDefaultValueAvailable() ? $reflectionParameter->getDefaultValue() : null,
-                                        "allows_null" => $reflectionParameter->allowsNull(),
-                                        "type" => $reflectionParameter->hasType() ? $reflectionParameter->getType()."" : null,
-                                        "internal" => $reflectionParameter->getClass() ? $reflectionParameter->getClass()->isInternal() : true,
-                                        "routeTemplatePosition" => is_int($urlPosition) ? $urlPosition : null
+                                        "nullable" => $reflectionParameter->allowsNull(),
+                                        "type" => $docInfo ? $docInfo->type : null,
+                                        "array" => $docInfo ? $docInfo->isArray : null,
+                                        "namespace" => $docInfo ? $docInfo->namespace : null,
+                                        "internal" => $docInfo ? $docInfo->isInternal : true
                                     ];
                                 }
 

@@ -85,9 +85,17 @@ class Request
      */
     private $forwarded = false;
     /**
-     * @var string[]
+     * @var array
      */
     private $_PUT = [];
+    /**
+     * @var array
+     */
+    private $_POST = [];
+    /**
+     * @var string
+     */
+    private $contentType;
     /**
      * @var Request
      */
@@ -112,11 +120,32 @@ class Request
         $this->serverIp = $_SERVER['SERVER_ADDR'];
         $this->serverPort = intval($_SERVER['SERVER_PORT']);
         $this->requestTime = $_SERVER['REQUEST_TIME_FLOAT'];
+
+        $contentType = $this->getHeader(IHttpHeaders::Content_Type);
+        $this->contentType = isset($contentType[0]) ? $contentType[0] : null;
+
         if(strtolower($this->requestMethod) === 'put')
         {
-            parse_str(file_get_contents('php://input'),$this->_PUT);
+            if($this->contentType == IHttpContentType::JSON)
+            {
+                $this->_PUT = json_decode(file_get_contents('php://input'),true);
+            }
+            else
+            {
+                parse_str(file_get_contents('php://input'), $this->_PUT);
+            }
         }
-        $this->requestData = array_merge($_GET, $_POST, $this->_PUT);
+
+        if(strtolower($this->requestMethod) === 'post' && $this->contentType == IHttpContentType::JSON)
+        {
+            $this->_POST = json_decode(file_get_contents('php://input'), true);
+        }
+
+        if(is_array($_POST) && is_array($this->_PUT) && is_array($this->_POST))
+        {
+            $this->requestData = array_merge($_POST, $this->_PUT, $this->_POST);
+        }
+
         $this->https = (((isset($_SERVER['HTTPS'])) && (strtolower($_SERVER['HTTPS']) == 'on')) || ((isset($_SERVER['HTTP_X_FORWARDED_PROTO'])) && (strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) == 'https')));
         $this->asynchronousRequest = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
 
@@ -311,9 +340,13 @@ class Request
     public function getHeader($name): array
     {
         $name = strtoupper(str_replace('-', '_', $name));
-        if(array_key_exists("HTTP_".$name, $_SERVER))
+        if(array_key_exists($name, $_SERVER))
         {
-            return explode(',',$_SERVER["HTTP_".$name]);
+            return explode(',', $_SERVER[$name]);
+        }
+        else if(array_key_exists("HTTP_".$name, $_SERVER))
+        {
+            return explode(',', $_SERVER["HTTP_".$name]);
         }
         return [];
     }
@@ -372,7 +405,7 @@ class Request
     public function getRequestData($key = null)
     {
         if($key){
-            if(array_key_exists($key,$this->requestData))
+            if(array_key_exists($key, $this->requestData))
                 return $this->requestData[$key];
             else
                 return null;
@@ -510,6 +543,14 @@ class Request
         }else{
             return $this->_PUT;
         }
+    }
+
+    /**
+     * @return string
+     */
+    public function getContentType()
+    {
+        return $this->contentType;
     }
 
 }
