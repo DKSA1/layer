@@ -6,7 +6,7 @@ class DocCommentParser
 {
     public static function var($docBlock)
     {
-        preg_match('/@var\s+([^\s]+)\s*([^\s]*)/', $docBlock, $matches);
+        preg_match('/@var\s+([^\s]+)\s*[^\s]*/', $docBlock, $matches);
         if(isset($matches[1]))
             return $matches[1];
         else

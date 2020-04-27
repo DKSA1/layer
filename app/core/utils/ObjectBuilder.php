@@ -5,6 +5,13 @@ namespace layer\core\utils;
 
 class ObjectBuilder
 {
+    /**
+     * @param string $namespace
+     * @param array $data
+     * @param bool $isArray
+     * @return array|object|null
+     * @throws \Exception
+     */
     public static function build($namespace, $data = [], $isArray = false)
     {
         if($isArray && is_array($data))
@@ -26,7 +33,9 @@ class ObjectBuilder
                 $obj = null;
                 foreach ($data as $key => $value)
                 {
-                    if($reflectionClass->hasProperty($key))
+                    $setter = 'set'.ucfirst($key);
+                    $reflectionSetter = $reflectionClass->hasMethod($setter) ? $reflectionClass->getMethod($setter) : null;
+                    if($reflectionClass->hasProperty($key) && $reflectionClass->isInstantiable() && $reflectionSetter && $reflectionSetter->isPublic())
                     {
                         if(!$obj)
                         {
@@ -35,7 +44,6 @@ class ObjectBuilder
                         $reflectionProperty = $reflectionClass->getProperty($key);
                         $docType = DocCommentParser::var($reflectionProperty->getDocComment());
                         $docTypeInfo = DocTypeInfo::getDocType($docType);
-                        $reflectionProperty->setAccessible(true);
                         if($docTypeInfo->isInternal)
                         {
                             if($docTypeInfo->type === 'object' && $docTypeInfo->namespace === '\DateTime')
@@ -43,18 +51,18 @@ class ObjectBuilder
                                 try
                                 {
                                     $date = new \DateTime($value);
-                                    $reflectionProperty->setValue($obj, $date);
+                                    $reflectionSetter->invokeArgs($obj, [$date]);
                                 }
                                 catch(\TypeError $e){}
                             }
                             else
                             {
-                                $reflectionProperty->setValue($obj, $value);
+                                $reflectionSetter->invokeArgs($obj, [$value]);
                             }
                         }
                         else
                         {
-                            $reflectionProperty->setValue($obj, self::build($docTypeInfo->namespace, $value, $docTypeInfo->isArray));
+                            $reflectionSetter->invokeArgs($obj, [self::build($docTypeInfo->namespace, $value, $docTypeInfo->isArray)]);
                         }
                     }
                 }

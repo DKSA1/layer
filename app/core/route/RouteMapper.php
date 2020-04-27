@@ -72,43 +72,56 @@ class RouteMapper
         $servicesFolder = Configuration::get("locations/services");
         $allFiles = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($servicesFolder));
         $phpFiles = new \RegexIterator($allFiles, '/\.*controller.*.php$/i');
-        if(count($phpFiles)) {
-            require_once PATH."app/core/mvc/annotation/MVCAnnotations.php";
-        }
-        $controllersStr = null;
+
+        $controllersStrRegex = null;
         $controllersFile = [];
-        foreach ($phpFiles as $phpFile) {
+
+        foreach ($phpFiles as $phpFile)
+        {
             require_once $phpFile;
-            if($controllersStr) {
-                $controllersStr .= '|';
+            if($controllersStrRegex)
+            {
+                $controllersStrRegex .= '|';
             }
-            $controllersStr .= rtrim(basename($phpFile), '.php');
+            $controllersStrRegex .= rtrim(basename($phpFile), '.php');
             $controllersFile[rtrim(basename($phpFile), '.php')] = trim($phpFile);
         }
-        $controllersNamespace = preg_grep("/($controllersStr)/", get_declared_classes());
-        foreach ($controllersNamespace as $cNamespace) {
+
+        if(count($controllersFile))
+        {
+            require_once PATH."app/core/mvc/annotation/MVCAnnotations.php";
+        }
+
+        $controllersNamespace = preg_grep("/($controllersStrRegex)/", get_declared_classes());
+
+        foreach ($controllersNamespace as $cNamespace)
+        {
             $reflectionController = new \ReflectionAnnotatedClass($cNamespace);
+
             if(($reflectionController->isSubclassOf(Controller::class) ||
                 $reflectionController->isSubclassOf(ApiController::class))
                 && !$reflectionController->getAnnotation('ErrorController')
-                && !$reflectionController->getAnnotation('ApiErrorController')) {
+                && !$reflectionController->getAnnotation('ApiErrorController'))
+            {
                 /**
                  * @var \Controller|\DefaultController|\ApiController $controllerAnnotation
                  */
                 $controllerAnnotation = $reflectionController->getAnnotation("Controller");
                 $isApi = false;
                 $routeTemplate = Configuration::get('environment/'.Configuration::$environment.'/routeTemplate');
-                if(!$controllerAnnotation) {
+                if(!$controllerAnnotation)
+                {
                     $controllerAnnotation = $reflectionController->getAnnotation("DefaultController");
-                    $isApi = false;
                 }
-                if(!$controllerAnnotation) {
+                if(!$controllerAnnotation)
+                {
                     $controllerAnnotation = $reflectionController->getAnnotation("ApiController");
                     $isApi = true;
                     $routeTemplate = Configuration::get('environment/'.Configuration::$environment.'/apiRouteTemplate');
                 }
 
-                if($controllerAnnotation && $controllerAnnotation->mapped) {
+                if($controllerAnnotation && $controllerAnnotation->mapped)
+                {
                     $controllerRouteTemplate = $controllerAnnotation->verifyRouteTemplate() ? trim($controllerAnnotation->verifyRouteTemplate(), '/') : str_replace("controller", "", strtolower(basename($cNamespace)));
                     $controllerRouteTemplate = trim(trim($routeTemplate,"/")."/".$controllerRouteTemplate,'/');
 
@@ -117,36 +130,11 @@ class RouteMapper
 
                     $controllerFilters = array_map('strtolower', $controllerAnnotation->filters);
 
-                    $urlControllerParameters = $controllerAnnotation->grepRouteTemplateParameters();
-                    $controllerParameters = [];
-
-
-                    if(count($urlControllerParameters)) {
-                        $reflectionConstructor = $reflectionController->getConstructor();
-                        $docCommentsController = DocCommentParser::param($reflectionConstructor->getDocComment());
-                        /**
-                         * @var \ReflectionParameter $reflectionParameter
-                         */
-                        foreach ($reflectionConstructor->getParameters() as $reflectionParameter) {
-                            // $urlPosition = array_search($reflectionParameter->getName(), $urlControllerParameters);
-                            $docInfo = isset($docCommentsController[$reflectionParameter->getName()]) ? DocTypeInfo::getDocType($docCommentsController[$reflectionParameter->getName()]) : null;
-                            $controllerParameters[$reflectionParameter->getPosition()] = [
-                                "name" => $reflectionParameter->getName(),
-                                "required" => !$reflectionParameter->isOptional(),
-                                "default" => $reflectionParameter->isDefaultValueAvailable() ? $reflectionParameter->getDefaultValue() : null,
-                                "nullable" => $reflectionParameter->allowsNull(),
-                                "type" => $docInfo ? $docInfo->type : null,
-                                "array" => $docInfo ? $docInfo->isArray : null,
-                                "namespace" => $docInfo ? $docInfo->namespace : null,
-                                "internal" => $docInfo ? $docInfo->isInternal : true
-                            ];
-                        }
-                    }
                     $routes[$controllerRouteTemplate] = [
                         "namespace" => $cNamespace,
                         "path" => trim($controllersFile[basename($cNamespace)]),
                         "filters_name" => $controllerFilters,
-                        "parameters" => $controllerParameters,
+                        "parameters" => self::infoParameters($reflectionController->getConstructor()),
                         "actions" => []
                     ];
 
@@ -154,9 +142,11 @@ class RouteMapper
                     /**
                      * @var \ReflectionAnnotatedMethod $reflectionMethod
                      */
-                    foreach ($reflectionController->getMethods() as $reflectionMethod) {
+                    foreach ($reflectionController->getMethods() as $reflectionMethod)
+                    {
                         if ($reflectionMethod->isPublic() &&
-                            ($reflectionMethod->hasAnnotation('Action') || $reflectionMethod->hasAnnotation('ApiAction'))) {
+                            ($reflectionMethod->hasAnnotation('Action') || $reflectionMethod->hasAnnotation('ApiAction')))
+                        {
                             /**
                              * @var \Action|\ApiAction $actionAnnotation
                              */
@@ -169,7 +159,8 @@ class RouteMapper
                                 $actionAnnotation = $reflectionMethod->getAnnotation('Action');
                             }
 
-                            if($actionAnnotation && $actionAnnotation->mapped) {
+                            if($actionAnnotation && $actionAnnotation->mapped)
+                            {
                                 // TODO : check if file exists in shared
                                 $actionRouteTemplateName = $actionAnnotation->verifyRouteTemplate() ? trim($actionAnnotation->verifyRouteTemplate(), '/') : strtolower($reflectionMethod->name);
                                 // for template and method to make the key unique for this action
@@ -181,7 +172,8 @@ class RouteMapper
                                     $defaultAction = $actionRouteTemplate;
                                 }
 
-                                if(!$isApi) {
+                                if(!$isApi)
+                                {
                                     $actionLayoutTemplate = $actionAnnotation->layoutName ?  $actionAnnotation->layoutName : $controllerLayoutTemplate;
                                     $actionLayoutTemplate = Configuration::get('layouts/'.$actionLayoutTemplate, false) ? $actionLayoutTemplate : null;
                                     $actionView = $actionAnnotation->viewName ? $actionAnnotation->viewName : $reflectionMethod->name;
@@ -190,34 +182,16 @@ class RouteMapper
 
                                 $actionFilters = array_diff(array_map("strtolower", $actionAnnotation->filters), $controllerFilters);
                                 // $urlActionParameters = $actionAnnotation->grepRouteTemplateParameters();
-                                $actionParameters = [];
-                                $docCommentsAction = DocCommentParser::param($reflectionMethod->getDocComment());
-                                /**
-                                 * @var \ReflectionParameter $reflectionParameter
-                                 */
-                                foreach ($reflectionMethod->getParameters() as $reflectionParameter) {
-                                    // $urlPosition = array_search($reflectionParameter->getName(), $urlActionParameters);
-                                    $docInfo = isset($docCommentsAction[$reflectionParameter->getName()]) ? DocTypeInfo::getDocType($docCommentsAction[$reflectionParameter->getName()]) : null;
-                                    $actionParameters[$reflectionParameter->getPosition()] = [
-                                        "name" => $reflectionParameter->getName(),
-                                        "required" => !$reflectionParameter->isOptional(),
-                                        "default" => $reflectionParameter->isDefaultValueAvailable() ? $reflectionParameter->getDefaultValue() : null,
-                                        "nullable" => $reflectionParameter->allowsNull(),
-                                        "type" => $docInfo ? $docInfo->type : null,
-                                        "array" => $docInfo ? $docInfo->isArray : null,
-                                        "namespace" => $docInfo ? $docInfo->namespace : null,
-                                        "internal" => $docInfo ? $docInfo->isInternal : true
-                                    ];
-                                }
 
                                 $routes[$controllerRouteTemplate]['actions'][$actionRouteTemplate] = [
                                     "method_name" => $reflectionMethod->name,
                                     "request_methods" => $actionAnnotation->verifyMethods(),
                                     "filters_name" => $actionFilters,
-                                    "parameters" => $actionParameters
+                                    "parameters" => self::infoParameters($reflectionMethod)
                                 ];
 
-                                if(!$isApi) {
+                                if(!$isApi)
+                                {
                                     $routes[$controllerRouteTemplate]['actions'][$actionRouteTemplate]['view_name'] = $actionView;
                                     $routes[$controllerRouteTemplate]['actions'][$actionRouteTemplate]['layout_name'] = $actionLayoutTemplate;
                                 }
@@ -225,24 +199,28 @@ class RouteMapper
                             }
                         }
                     }
-                    if(array_key_exists($defaultAction, $routes[$controllerRouteTemplate]['actions'])) {
+                    if(array_key_exists($defaultAction, $routes[$controllerRouteTemplate]['actions']))
+                    {
                         $routes[$controllerRouteTemplate]["actions"][""] = ['forward' => $defaultAction];
                     }
-                    if($reflectionController->hasAnnotation('DefaultController')) {
+                    if($reflectionController->hasAnnotation('DefaultController'))
+                    {
                         $routes[''] = [
                             "forward" => $controllerRouteTemplate
                         ];
                     }
                 }
             } else if(($reflectionController->isSubclassOf(ErrorController::class) && $reflectionController->hasAnnotation('ErrorController'))
-                || ($reflectionController->isSubclassOf(ApiErrorController::class) && $reflectionController->hasAnnotation('ApiErrorController'))) {
+                || ($reflectionController->isSubclassOf(ApiErrorController::class) && $reflectionController->hasAnnotation('ApiErrorController')))
+            {
                 /***
                  * @var $eControllerAnnotation \ErrorController
                  */
                 $eControllerAnnotation = $reflectionController->getAnnotation('ErrorController');
                 $isApiError = false;
                 $errorKey = '*';
-                if(!$eControllerAnnotation) {
+                if(!$eControllerAnnotation)
+                {
                     $eControllerAnnotation = $reflectionController->getAnnotation('ApiErrorController');
                     $isApiError = true;
                     $errorKey = '**';
@@ -260,47 +238,54 @@ class RouteMapper
                 /**
                  * @var \ReflectionAnnotatedMethod $reflectionMethod
                  */
-                foreach ($reflectionController->getMethods() as $reflectionMethod) {
+                foreach ($reflectionController->getMethods() as $reflectionMethod)
+                {
                     if ($reflectionMethod->isPublic() && $reflectionMethod->hasAnnotation('ErrorAction')
-                        || $reflectionMethod->hasAnnotation('ApiErrorAction')) {
+                        || $reflectionMethod->hasAnnotation('ApiErrorAction'))
+                    {
                         /**
                          * @var $eActionAnnotation \ErrorAction
                          */
                         $eActionAnnotation = $reflectionMethod->getAnnotation("ErrorAction");
-                        if(!$eActionAnnotation) {
+                        if(!$eActionAnnotation)
+                        {
                             $eActionAnnotation = $reflectionMethod->getAnnotation("ApiErrorAction");
                         }
 
-                        if($eActionAnnotation->mapped) {
-                            if(count($eActionAnnotation->errorCodes) > 0) {
+                        if($eActionAnnotation->mapped)
+                        {
+                            if(count($eActionAnnotation->errorCodes) > 0)
+                            {
                                 $actionName = $eActionAnnotation->errorCodes[0];
                                 $routes[$errorKey]['actions'][$actionName] = null;
-                                foreach ($eActionAnnotation->errorCodes as $routeName) {
+                                foreach ($eActionAnnotation->errorCodes as $routeName)
+                                {
                                     if(!array_key_exists($routeName, $routes[$errorKey]['actions'])) {
                                         $routes[$errorKey]['actions'][$routeName] = [
                                             "forward" => $actionName
                                         ];
                                     }
                                 }
-                            } else {
+                            }
+                            else
+                            {
                                 $actionName = $reflectionMethod->name;
                             }
-                            if ($reflectionMethod->name == 'index') {
+                            if ($reflectionMethod->name == 'index')
+                            {
                                 $routes[$errorKey]["actions"][""] = $actionName;
-                            }
-
-                            if (!$isApiError) {
-                                $eActionView = $eActionAnnotation->viewName ? $eActionAnnotation->viewName : $reflectionMethod->name;
-                                $eActionView = file_exists(dirname($controllersFile[basename($cNamespace)])."/view/$eActionView.php") ? $eActionView : null;
-                                $eLayoutTemplate = $eActionAnnotation->layoutName ? $eActionAnnotation->layoutName : $controllerLayoutTemplate;
-                                $eLayoutTemplate = Configuration::get('layouts/'.$eLayoutTemplate, false) ? $eLayoutTemplate : null;
                             }
 
                             $routes[$errorKey]['actions'][$actionName] = [
                                 "method_name" => $reflectionMethod->name
                             ];
 
-                            if(!$isApiError) {
+                            if (!$isApiError)
+                            {
+                                $eActionView = $eActionAnnotation->viewName ? $eActionAnnotation->viewName : $reflectionMethod->name;
+                                $eActionView = file_exists(dirname($controllersFile[basename($cNamespace)])."/view/$eActionView.php") ? $eActionView : null;
+                                $eLayoutTemplate = $eActionAnnotation->layoutName ? $eActionAnnotation->layoutName : $controllerLayoutTemplate;
+                                $eLayoutTemplate = Configuration::get('layouts/'.$eLayoutTemplate, false) ? $eLayoutTemplate : null;
                                 $routes[$errorKey]['actions'][$actionName]['view_name'] = $eActionView;
                                 $routes[$errorKey]['actions'][$actionName]['layout_name'] = $eActionView ? $eLayoutTemplate : null;
                             }
@@ -311,6 +296,32 @@ class RouteMapper
         }
         file_put_contents('app/core/config/routes_'.Configuration::$environment.'.json', json_encode($routes, JSON_PRETTY_PRINT));
         return $routes;
+    }
+
+
+    private static function infoParameters(\ReflectionMethod $method)
+    {
+        $parameters = [];
+        $docComments = DocCommentParser::param($method->getDocComment());
+        /**
+         * @var \ReflectionParameter $reflectionParameter
+         */
+        foreach ($method->getParameters() as $reflectionParameter)
+        {
+            $docInfo = isset($docComments[$reflectionParameter->getName()]) ? DocTypeInfo::getDocType($docComments[$reflectionParameter->getName()]) : null;
+            $parameters[$reflectionParameter->getPosition()] = [
+                "name" => $reflectionParameter->getName(),
+                "required" => !$reflectionParameter->isOptional(),
+                "default" => $reflectionParameter->isDefaultValueAvailable() ? $reflectionParameter->getDefaultValue() : null,
+                "nullable" => $reflectionParameter->allowsNull(),
+                "type" => $docInfo ? $docInfo->type : null,
+                "array" => $docInfo ? $docInfo->isArray : null,
+                "namespace" => $docInfo ? $docInfo->namespace : null,
+                "internal" => $docInfo ? $docInfo->isInternal : true
+            ];
+        }
+
+        return $parameters;
     }
     
 

@@ -166,6 +166,10 @@ class Request
             $this->clientBrowser = 'Firefox';
         } elseif(strpos($ua, 'msie/')) {
             $this->clientBrowser = 'Internet Explorer';
+        } elseif(strpos($ua, 'postmanruntime/')) {
+            $this->clientBrowser = "Postman";
+        } else {
+            $this->clientBrowser = "?";
         }
 
         if(preg_match('/windows|win32|win98|win95|win16/',$ua)) {
@@ -188,6 +192,8 @@ class Request
             $this->clientOS = 'Blackberry';
         } elseif (strpos($ua, 'webos')) {
             $this->clientOS = 'Mobile';
+        } else {
+            $this->clientOS = '?';
         }
     }
 

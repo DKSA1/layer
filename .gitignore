@@ -16,3 +16,5 @@ app/core/config/shared.json
 public/
 
 app/core/config/routes.json
+
+app/core/persistence/
