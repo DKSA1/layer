@@ -38,9 +38,14 @@ class WsClientConnection
      * @var string
      */
     private $version;
+    /**
+     * @var float
+     */
+    private $connectionTime;
 
     public function __construct($socket, $master, $bufferSize)
     {
+        $this->connectionTime = microtime(true);
         $this->id = uniqid();
         $this->socket = $socket;
         $this->master = $master;

@@ -17,6 +17,7 @@ class RouteMapper
     public static function buildSharedMap() : array
     {
         $shared = [
+            "global" => [],
             "filters" => [],
             "view" => []
         ];
@@ -44,7 +45,13 @@ class RouteMapper
         foreach ($filtersNamespace as $fNamespace) {
             $reflectionClass = new \ReflectionAnnotatedClass($fNamespace);
             if($reflectionClass->isSubclassOf(Filter::class)) {
+                $key = "filters";
                 $filterAnnotation = $reflectionClass->getAnnotation("Filter");
+                if(!$filterAnnotation)
+                {
+                    $filterAnnotation = $reflectionClass->getAnnotation('GlobalFilter');
+                    $key = "global";
+                }
                 if($filterAnnotation) {
                     if($filterAnnotation->mapped) {
                         if($filterAnnotation->verifyName()) {
@@ -52,8 +59,8 @@ class RouteMapper
                         } else {
                             $filterName = strtolower(str_replace("Filter", "", str_replace(".php", "", basename($fNamespace))));
                         }
-                        if(!array_key_exists($filterName, $shared['filters'])) {
-                            $shared['filters'][strtolower($filterName)] = [
+                        if(!array_key_exists($filterName, $shared[$key])) {
+                            $shared[$key][strtolower($filterName)] = [
                                 "namespace" => $reflectionClass->name,
                                 "path" => $filtersFile[basename($fNamespace)]
                             ];

@@ -224,7 +224,8 @@ class Router {
             $propertyRequest->setValue($this->request, ["global" => $this->globalParameters, "controller" => $controllerParameters, "action" => $actionParameters]);
             if(in_array(strtolower($this->request->getRequestMethod()), $actionMetaData['request_methods']))
             {
-                $this->applyFilters($controllerMetaData['filters_name']);
+                $controllerFilters = array_merge(array_keys($this->shared['global']),$controllerMetaData['filters_name']);
+                $this->applyFilters($controllerFilters);
                 require_once $controllerMetaData['path'];
                 $reflectionController = new \ReflectionClass($controllerMetaData['namespace']);
                 // setting request & response
@@ -259,7 +260,7 @@ class Router {
                             $this->response->setMessageBody(strval($result));
                     }
                     $this->applyFilters($actionMetaData['filters_name']);
-                    $this->applyFilters($controllerMetaData['filters_name']);
+                    $this->applyFilters($controllerFilters);
                     // TODO : replace this with viewproperty
                     if($actionViewProperty)
                     {
@@ -365,10 +366,11 @@ class Router {
 
     private function applyFilters($names) {
         foreach($names as $name) {
-            if(array_key_exists($name, $this->shared['filters'])) {
+            $key = array_key_exists($name, $this->shared['global']) ? "global" : (array_key_exists($name, $this->shared['filters']) ? "filters" : null);
+            if($key) {
                 if(!array_key_exists($name, $this->filters)) {
-                    require_once($this->shared['filters'][$name]['path']);
-                    $reflectionFilter = new \ReflectionClass($this->shared['filters'][$name]['namespace']);
+                    require_once($this->shared[$key][$name]['path']);
+                    $reflectionFilter = new \ReflectionClass($this->shared[$key][$name]['namespace']);
                     $this->filters[$name] = $reflectionFilter->newInstance();
                     $result = $this->filters[$name]->enter();
                 } else {

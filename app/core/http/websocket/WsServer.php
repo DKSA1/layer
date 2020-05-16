@@ -39,9 +39,17 @@ class WsServer
      */
     private $started = false;
     /**
+     * @var float
+     */
+    private $startTime;
+    /**
      * @var bool
      */
     private $running = false;
+    /**
+     * @var int
+     */
+    private $pid;
 
     public static function create($address, $port, $bufferSize = 2048, $maxConnections = 100)
     {
@@ -72,6 +80,7 @@ class WsServer
         $this->port = $port;
         $this->bufferSize = $bufferSize;
         $this->maxConnections = $maxConnections;
+        $this->pid = getmypid();
         // ignore_user_abort(true);
         $this->clients = new WsClientGroup("");
         $this->groups = [];
@@ -97,6 +106,7 @@ class WsServer
             socket_set_nonblock($this->master);
 
             $this->started = true;
+            $this->startTime = microtime(true);
 
             $this->run();
         }
@@ -107,11 +117,10 @@ class WsServer
         $this->running = true;
         do
         {
-            // check for new connections
             $this->checkNewIncomingConnections();
-            // check for client changes
             $this->checkClientChanges();
-        } while($this->running);
+        }
+        while($this->running);
         $this->close();
     }
 
@@ -139,7 +148,7 @@ class WsServer
             {
                 Logger::write("Connecting socket");
                 $c = new WsClientConnection($clientSocket, $this->master, $this->bufferSize);
-                $msg = "[".Date('Y-m-d h:m:s')."][".$c->getId()."]: New client joined - ".($this->clients->size()+1)."/".$this->maxConnections;
+                $msg = "[".Date('Y-m-d h:m:s')."][".$c->getId()."][".$c->getIp()."]: New client joined - ".($this->clients->size()+1)."/".$this->maxConnections;
                 echo $msg."\n";
                 $this->clients->send($msg);
 
@@ -163,7 +172,7 @@ class WsServer
                 {
                     if($data != "")
                     {
-                        $msg = "[".Date('Y-m-d h:m:s')."][".$client->getId()."]: ".$data;
+                        $msg = "[".Date('Y-m-d h:m:s')."][".$client->getId()."][".$client->getIp()."]: ".$data;
                         echo $msg."\n";
                         $this->clients->send($msg);
                     }
@@ -172,7 +181,7 @@ class WsServer
                 {
                     if($this->clients->remove($client))
                     {
-                        $msg = "[".Date('Y-m-d h:m:s')."][".$client->getId()."]: Client Connection closed\n";
+                        $msg = "[".Date('Y-m-d h:m:s')."][".$client->getId()."][".$client->getIp()."]: Client Connection closed";
                         echo $msg."\n";
                         $this->clients->send($msg);
                         $client->close();

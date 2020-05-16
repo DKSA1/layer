@@ -8,6 +8,7 @@ require_once(PATH . 'app/lib/addendum/annotations.php');
 
 abstract class MVCAnnotation extends Annotation
 {
+    // TODO : remove this if unused
     public function grepRouteTemplateParameters() {
         $params = [];
         preg_match('/{#?(\w+)\??}/', $this->routeTemplate, $params);
@@ -45,6 +46,12 @@ class Filter extends Annotation
         else
                 return null;
     }
+}
+
+/** @Target("class") */
+class GlobalFilter extends Filter
+{
+
 }
 
 /** @Target("class") */
