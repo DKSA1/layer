@@ -159,8 +159,6 @@ class WsClientConnection
 
     private function decode($payload)
     {
-        echo $payload;
-
         $length = ord($payload[1]) & 127;
 
         if($length == 126) {
@@ -216,4 +214,10 @@ class WsClientConnection
     {
         return $this->ip;
     }
+
+    /**
+    private function isUtf8($str) {
+        return boolval(preg_match('//u', $str));
+    }
+     */
 }

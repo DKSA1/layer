@@ -22,6 +22,10 @@ abstract class CoreController
      */
     protected static $response;
 
+    public function __construct()
+    {
+    }
+
     protected final function forward($internalUrl)
     {
         Logger::write("Forwarding request to new location: ".$internalUrl);

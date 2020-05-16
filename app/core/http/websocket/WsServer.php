@@ -34,6 +34,14 @@ class WsServer
      * @var resource
      */
     private $master;
+    /**
+     * @var bool
+     */
+    private $started = false;
+    /**
+     * @var bool
+     */
+    private $running = false;
 
     public static function create($address, $port, $bufferSize = 2048, $maxConnections = 100)
     {
@@ -71,36 +79,40 @@ class WsServer
 
     public function start()
     {
-        $this->master = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-        socket_set_option($this->master, SOL_SOCKET, SO_REUSEADDR, 1);
+        if(!$this->started) {
+            $this->master = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+            socket_set_option($this->master, SOL_SOCKET, SO_REUSEADDR, 1);
 
-        if (!is_resource($this->master))
-            Logger::write("socket_create() failed: ".socket_strerror(socket_last_error()));
+            if (!is_resource($this->master))
+                Logger::write("socket_create() failed: ".socket_strerror(socket_last_error()));
 
-        if (!socket_bind($this->master, $this->address, $this->port))
-            Logger::write("socket_bind() failed: ".socket_strerror(socket_last_error()));
+            if (!socket_bind($this->master, $this->address, $this->port))
+                Logger::write("socket_bind() failed: ".socket_strerror(socket_last_error()));
 
-        if(!socket_listen($this->master, 20))
-            Logger::write("socket_listen() failed: ".socket_strerror(socket_last_error()));
+            if(!socket_listen($this->master, 20))
+                Logger::write("socket_listen() failed: ".socket_strerror(socket_last_error()));
 
-        Logger::write("[".date('Y-m-d H:i:s')."] Websocket server started on ".$this->address.":".$this->port);
+            Logger::write("[".date('Y-m-d H:i:s')."] Websocket server started on ".$this->address.":".$this->port);
 
-        socket_set_nonblock($this->master);
+            socket_set_nonblock($this->master);
 
-        $this->run();
+            $this->started = true;
+
+            $this->run();
+        }
     }
 
     private function run()
     {
-        $run = true;
-        while($run)
+        $this->running = true;
+        do
         {
             // check for new connections
             $this->checkNewIncomingConnections();
             // check for client changes
             $this->checkClientChanges();
-        }
-        $this->stop();
+        } while($this->running);
+        $this->close();
     }
 
     private function checkNewIncomingConnections()
@@ -171,10 +183,16 @@ class WsServer
         }
     }
 
-    public function stop()
+    private function close()
     {
         $this->clients->close();
         socket_close($this->master);
+        $this->started = false;
+    }
+
+    public function stop()
+    {
+        $this->running = false;
         Logger::write("[".date('Y-m-d H:i:s')."] Websocket server stopped");
     }
 }

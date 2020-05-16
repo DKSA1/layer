@@ -71,16 +71,26 @@ class Style
 
     public function render()
     {
-        if($this->href || $this->code)
+        if($this->href && !$this->code)
         {
-            $tag = '<link';
-            if($this->rel) $tag .= ' rel="'.$this->rel.'" ';
-            if($this->href) $tag .= ' href="'.$this->href.'" ';
+            $tag = "<link ";
+            if($this->rel) $tag .= " rel='".$this->rel."' ";
+            if($this->href) $tag .= " href='".$this->href."' ";
+            if($this->integrity) $tag .= " integrity='".$this->integrity."' ";
+            if($this->crossOrigin) $tag .= " crossorigin='".$this->crossOrigin."' ";
+            $tag .= "/>";
+            return $tag;
+        }
+        else
+        {
+            $tag = "<style ";
+            if($this->rel) $tag .= " rel='".$this->rel."' ";
+            if($this->href) $tag .= " href='".$this->href."' ";
             if($this->integrity) $tag .= " integrity='".$this->integrity."' ";
             if($this->crossOrigin) $tag .= " crossorigin='".$this->crossOrigin."' ";
             $tag .= ">";
             if($this->code) $tag .= $this->code;
-            $tag .= "</link>";
+            $tag .= "</style>";
             return $tag;
         }
         return null;

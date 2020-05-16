@@ -79,13 +79,12 @@ class StringValidator
 
     public static function isIpv4(string $data)
     {
-        if($data === '::1')
-            return true;
-        return (filter_var($data, FILTER_VALIDATE_IP) == $data && preg_match('/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/', $data)) != false;
+        return (filter_var($data, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) == $data && preg_match('/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/', $data)) != false;
     }
 
     public static function isIpv6(string $data)
     {
+        if($data === '::1') return true;
         return filter_var($data, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6);
     }
 
