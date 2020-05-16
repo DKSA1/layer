@@ -12,7 +12,7 @@ use layer\core\mvc\view\ViewManager;
 abstract class Controller extends CoreController {
 
     /**
-     * @var ViewManager $actionViewProperty
+     * @var ViewManager
      */
     protected $viewManager;
 

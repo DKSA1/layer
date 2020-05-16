@@ -3,6 +3,8 @@
 namespace layer\core\mvc\view;
 
 use layer\core\config\Configuration;
+use layer\core\html\Script;
+use layer\core\html\Style;
 
 class ViewManager
 {
@@ -30,8 +32,17 @@ class ViewManager
      * @var string[]
      */
     private $shared;
+    /**
+     * @var Style[]
+     */
+    private $styles;
+    /**
+     * @var Script[]
+     */
+    private $scripts;
 
-    public static function build($pathToView, $shared) {
+    public static function build($pathToView, $shared)
+    {
         if(file_exists($pathToView))
         {
             return new ViewManager($pathToView, $shared);
@@ -46,6 +57,8 @@ class ViewManager
         $this->beforeViews = [];
         $this->contentView = basename($pathToView,'.php');
         $this->viewDirectory = dirname($pathToView);
+        $this->styles = [];
+        $this->scripts = [];
     }
 
     private function loadLayout($layoutName)
@@ -69,13 +82,15 @@ class ViewManager
 
     /**
      * @param string $layoutName
+     * @return bool
      */
     public function setLayoutName(string $layoutName)
     {
         return $this->loadLayout($layoutName);
     }
 
-    public function addBeforeView($viewName, $position = null) {
+    public function addBeforeView($viewName, $position = null)
+    {
         if($this->sharedViewExists($viewName))
         {
             if($position)
@@ -91,7 +106,8 @@ class ViewManager
         return false;
     }
 
-    public function removeBeforeView($viewName) {
+    public function removeBeforeView($viewName)
+    {
         $idx = array_search($viewName, $this->beforeViews);
         if($idx)
         {
@@ -119,6 +135,7 @@ class ViewManager
 
     /**
      * @param string $contentView
+     * @return bool
      */
     public function setContentView(string $contentView)
     {
@@ -130,7 +147,8 @@ class ViewManager
         return false;
     }
 
-    public function addAfterView($viewName, $position = null) {
+    public function addAfterView($viewName, $position = null)
+    {
         if($this->sharedViewExists($viewName))
         {
             if($position)
@@ -146,7 +164,8 @@ class ViewManager
         return false;
     }
 
-    public function removeAfterView($viewName) {
+    public function removeAfterView($viewName)
+    {
         $idx = array_search($viewName, $this->afterViews);
         if($idx)
         {
@@ -163,7 +182,8 @@ class ViewManager
         return $this->afterViews;
     }
 
-    private function sharedViewExists($viewName) {
+    private function sharedViewExists($viewName)
+    {
         if(array_key_exists($viewName, $this->shared) && file_exists($this->shared[$viewName]))
         {
             return true;
@@ -174,13 +194,48 @@ class ViewManager
     protected function generateView($data = [])
     {
         $compositeView = new Layout();
-        foreach ($this->beforeViews as $view) {
+        foreach ($this->beforeViews as $view)
+        {
             $compositeView->appendView(new View($this->shared[$view]));
         }
         $compositeView->appendView(new View($this->viewDirectory."/".$this->contentView.".php"));
-        foreach ($this->afterViews as $view) {
+        foreach ($this->afterViews as $view)
+        {
             $compositeView->appendView(new View($this->shared[$view]));
         }
-        return $compositeView->render($data);
+
+        return $compositeView->render(
+            array_merge($data,
+            [
+                "__scripts" => implode("",array_map(function (Script $script) { return $script->render(); }, $this->scripts)),
+                "__styles" => implode("",array_map(function (Style $style) { return $style->render(); }, $this->styles))
+            ]
+        ));
+    }
+
+    public function addStyle(Style $style)
+    {
+        if(!in_array($style, $this->styles, true))
+        {
+            $this->styles[] = $style;
+        }
+    }
+
+    public function addScript(Script $script)
+    {
+        if(!in_array($script, $this->scripts, true))
+        {
+            $this->scripts[] = $script;
+        }
+    }
+
+    public function getStyles()
+    {
+        return $this->styles;
+    }
+
+    public function getScripts()
+    {
+        return $this->scripts;
     }
 }

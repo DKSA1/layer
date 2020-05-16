@@ -14,13 +14,15 @@ class Logger
     /**
      * @var Request
      */
-    public static $request;
+    private static $request;
 
     static function write($message, $template = NULL) {
-        if(Configuration::get("environment/".Configuration::$environment."/log", false)) {
-            if(self::$request) {
+        if(Configuration::get("environment/".Configuration::$environment."/log", false))
+        {
+            $date = date('Y-m-d');
+            if(self::$request)
+            {
                     $log = $template ?? Configuration::get("environment/".Configuration::$environment."/logTemplate");
-                    $date = date('Y-m-d');
                     $log = str_replace("{request_datetime}", date('Y-m-d H:i:s', self::$request->getRequestTime()), $log);
                     $log = str_replace("{request_time}", date('H:i:s.v', self::$request->getRequestTime()), $log);
                     $log = str_replace("{request_date}", date('Y-m-d', self::$request->getRequestTime()), $log);
@@ -33,11 +35,18 @@ class Logger
                     $log = str_replace("{environment}", Configuration::$environment, $log);
                     $log = str_replace("{message}", $message, $log);
                     $log .= PHP_EOL;
-                    if(!file_exists(Configuration::get("locations/logs"))) {
-                        mkdir(Configuration::get("locations/logs"),0777, true);
-                    }
-                    file_put_contents(Configuration::get("locations/logs")."/log_$date.txt", $log, FILE_APPEND);
             }
+            else
+            {
+                    $log = $message;
+                    $log .= PHP_EOL;
+
+            }
+            if(!file_exists(Configuration::get("locations/logs")))
+            {
+                mkdir(Configuration::get("locations/logs"),0777, true);
+            }
+            file_put_contents(Configuration::get("locations/logs")."/log_$date.txt", $log, FILE_APPEND);
         }
     }
 }

@@ -71,7 +71,6 @@ class Router {
     private function __construct(Request $request){
         $this->request = $request;
         $this->response = Response::getInstance();
-        Logger::$request = $this->request;
         $this->routes = $this->load('routes_'.Configuration::$environment.'.json');
         $this->shared = $this->load('shared.json');
         if(Configuration::get('environment/'.Configuration::$environment.'/buildRoutesMap') || !($this->routes && $this->shared))
@@ -131,7 +130,6 @@ class Router {
         $baseUrl = trim($baseUrl, "/");
         $baseApi = trim(Configuration::get("environment/".Configuration::$environment."/apiRouteTemplate"),'/');
         $this->apiCall = preg_match('/^'.$baseApi.'/', $baseUrl);
-        // TODO add global parameters to request
         preg_match('/^'.Configuration::get("environment/".Configuration::$environment."/routeTemplate").'/', $baseUrl, $this->globalParameters);
         if(preg_match('/^'.Configuration::get("environment/".Configuration::$environment."/routeTemplate").'$/', $baseUrl))
         {
@@ -140,7 +138,6 @@ class Router {
             return $this->initializeControllerAction($controller, $action);
         }
         $controllerRoutes = array_keys($this->routes);
-        // $controllerParameters = [];
         $filteredController = array_filter($controllerRoutes, function ($controllerTemplate) use ($baseUrl, &$controllerParameters)
         {
             $temp = str_replace("/", "\/", $controllerTemplate);
@@ -154,7 +151,6 @@ class Router {
         }
         else
         {
-            // TODO : replace by taking only first elem
             foreach ($filteredController as $fc) {
                 $controllerParameters = count($controllerParameters) >= 1 ? array_slice($controllerParameters[$fc], 1) : [];
                 $controller = $this->resolveFinalController($this->routes, $fc);
@@ -163,8 +159,6 @@ class Router {
                     return $this->initializeControllerAction($controller, $action, [], $controllerParameters);
                 }
                 $actionRoutes = array_keys($controller['actions']);
-                // TODO : IF no actions throw error
-                // $actionParameters = [];
                 $filteredAction = array_filter($actionRoutes, function ($actionTemplate) use ($fc, $baseUrl, $controller, &$actionParameters) {
                     $actionName = explode(" ",$actionTemplate);
                     $actionName = isset($actionName[1]) ? $actionName[1] : "";
@@ -184,7 +178,6 @@ class Router {
                         }
                     }
                     throw new EMethod("Method {$this->request->getRequestMethod()} not allowed",HttpHeaders::BadRequest);
-                    // $actionName = array_shift($filteredAction);
                 }
             }
         }
@@ -234,6 +227,13 @@ class Router {
                 $this->applyFilters($controllerMetaData['filters_name']);
                 require_once $controllerMetaData['path'];
                 $reflectionController = new \ReflectionClass($controllerMetaData['namespace']);
+                // setting request & response
+                $requestReflection = $reflectionController->getProperty('request');
+                $requestReflection->setAccessible(true);
+                $requestReflection->setValue($this->request);
+                $responseReflection = $reflectionController->getProperty('response');
+                $responseReflection->setAccessible(true);
+                $responseReflection->setValue($this->response);
                 if($reflectionController->hasMethod($actionMetaData['method_name']))
                 {
                     $this->applyFilters($actionMetaData['filters_name']);
@@ -314,6 +314,14 @@ class Router {
         {
             return null;
         }
+        // setting request & response
+        $requestReflection = $reflectionErrorController->getProperty('request');
+        $requestReflection->setAccessible(true);
+        $requestReflection->setValue($this->request);
+        $responseReflection = $reflectionErrorController->getProperty('response');
+        $responseReflection->setAccessible(true);
+        $responseReflection->setValue($this->response);
+
         $controller = $reflectionErrorController->newInstance($e);
         // set viewProperty for controller
         $actionViewProperty = null;
@@ -355,23 +363,6 @@ class Router {
         return $this->response;
     }
 
-    /*private function generateLayout($layoutName, $viewTemplate) {
-        $layout = new Layout();
-        foreach (Configuration::get("layouts/$layoutName/before") as $viewName)
-        {
-            $view = new View($this->shared['view'][$viewName]);
-            $layout->appendView($view);
-        }
-        $main = new View($viewTemplate);
-        $layout->appendView($main);
-        foreach (Configuration::get("layouts/$layoutName/after") as $viewName)
-        {
-            $view = new View($this->shared['view'][$viewName]);
-            $layout->appendView($view);
-        }
-        $this->response->setMessageBody($layout->render($this->response->getData()));
-    }*/
-
     private function applyFilters($names) {
         foreach($names as $name) {
             if(array_key_exists($name, $this->shared['filters'])) {
@@ -412,7 +403,8 @@ class Router {
 
     private function checkParameters($parameters, $parametersInfo) {
         $checkedParameters = [];
-        foreach ($parametersInfo as $param) {
+        foreach ($parametersInfo as $param)
+        {
             if($param['internal'] == false)
             {
                 $checkedParameters[$param['name']] = ObjectBuilder::build($param['namespace'], $this->request->getRequestData(), $param['array']);

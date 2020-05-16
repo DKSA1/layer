@@ -16,17 +16,11 @@ abstract class CoreController
     /**
      * @var Request $request
      */
-    protected $request;
+    protected static $request;
     /**
      * @var Response $response
      */
-    protected $response;
-
-    public function __construct()
-    {
-        $this->request = Request::getInstance();
-        $this->response = Response::getInstance();
-    }
+    protected static $response;
 
     protected final function forward($internalUrl)
     {

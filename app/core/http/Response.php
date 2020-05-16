@@ -60,6 +60,8 @@ class Response
         return self::$instance;
     }
 
+    private function __construct(){}
+
     public function putHeader($key, $value)
     {
         $this->headers[$key] = $value;
