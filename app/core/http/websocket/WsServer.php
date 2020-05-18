@@ -3,25 +3,26 @@
 namespace layer\core\http\websocket;
 
 use layer\core\utils\Logger;
+use layer\core\utils\StringValidator;
 
 class WsServer
 {
     /**
      * @var int
      */
-    private $maxConnections = 100;
+    private $maxConnections;
     /**
      * @var int
      */
-    private $bufferSize = 2048;
+    private $bufferSize;
     /**
      * @var int
      */
-    private $port = 8000;
+    private $port;
     /**
      * @var string
      */
-    private $address = '127.0.0.1';
+    private $address;
     /**
      * @var WsClientGroup
      */
@@ -51,13 +52,21 @@ class WsServer
      */
     private $pid;
 
-    public static function create($address, $port, $bufferSize = 2048, $maxConnections = 100)
+    public static function create($remote = '127.0.0.1', $port = 8000, $bufferSize = 2048, $maxConnections = 10)
     {
-        if(!self::isRunning($address, $port))
+        if(StringValidator::isDomain($remote) && !StringValidator::isIpv4($remote))
         {
-            return new WsServer($address, $port, $bufferSize, $maxConnections);
-        } else
-            return null;
+            putenv('RES_OPTIONS=retrans:1 retry:1 timeout:1 attempts:1');
+            $remote = gethostbyname($remote.'.');
+        }
+        if(StringValidator::isIpv4($remote))
+        {
+            if(!self::isRunning($remote, $port))
+            {
+                return new WsServer($remote, $port, $bufferSize, $maxConnections);
+            }
+        }
+        return null;
     }
 
     private static function isRunning($address, $port)

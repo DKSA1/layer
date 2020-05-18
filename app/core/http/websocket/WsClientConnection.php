@@ -35,10 +35,6 @@ class WsClientConnection
      */
     private $handshake = false;
     /**
-     * @var string
-     */
-    private $version;
-    /**
      * @var float
      */
     private $connectionTime;
@@ -74,14 +70,14 @@ class WsClientConnection
     {
         if(preg_match("/Sec-WebSocket-Version: (.*)\r\n/", $headers, $match))
         {
-            $this->version = $match[1];
+            $version = $match[1];
         }
         else
         {
             // The client doesn't support WebSocket
             return false;
         }
-        if($this->version == 13)
+        if($version == 13)
         {
             // Extract header variables
             if(preg_match("/GET (.*) HTTP/", $headers, $match))
@@ -103,7 +99,7 @@ class WsClientConnection
                 "\r\n\r\n";
 
             socket_write($this->socket, $upgrade);
-            Logger::write('Successful handshake with client: '.intval($this->socket). " websocket v".$this->version." connection established\n");
+            Logger::write('Successful handshake with client: '.intval($this->socket). " websocket v".$version." connection established\n");
             return true;
         }
         else
@@ -129,7 +125,7 @@ class WsClientConnection
             {
                 break;
             }
-            if($read == "")
+            if($read === "")
             {
                 return false;
             }
@@ -139,9 +135,11 @@ class WsClientConnection
         if($len)
         {
             $decodedData = $this->decode($data);
-            if($decodedData != "")
+            if($decodedData !== "")
             {
                 return $decodedData;
+            } else {
+                return false;
             }
         }
 
