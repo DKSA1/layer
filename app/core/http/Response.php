@@ -34,9 +34,6 @@ class Response
      * @var string $messageBody
      */
     private $messageBody;
-
-    // todo : remove this
-    private $data = [];
     /**
      * @var float
      */
@@ -84,25 +81,6 @@ class Response
         return $this->responseCode;
     }
     /**
-     * @param string $key
-     * @param $value
-     */
-    public function putData(string $key, $value) {
-        $this->data[$key] = $value;
-    }
-    /**
-     * @param array|object $array
-     */
-    public function setDataArray($array) {
-        $this->data = $array;
-    }
-    /**
-     * @return array|object
-     */
-    public function getData() {
-        return $this->data;
-    }
-    /**
      * @param string $messageBody
      */
     public function setMessageBody(string $messageBody) {
@@ -111,7 +89,8 @@ class Response
     /**
      * @return string
      */
-    public function getMessageBody() {
+    public function getMessageBody()
+    {
         return $this->messageBody;
     }
 

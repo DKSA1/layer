@@ -22,8 +22,8 @@ abstract class CoreController
      */
     protected static $response;
 
-    public function __construct()
-    {
+    protected static $data;
+
     }
 
     protected final function forward($internalUrl)

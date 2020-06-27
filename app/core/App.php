@@ -79,7 +79,7 @@ class App
         $appContext = Configuration::get("globals");
         foreach ($appContext as $c => $v) {
             if(is_array($v)) $v = json_encode($v);
-            define(strtoupper($c),$v);
+            if(!defined(strtoupper($c))) define(strtoupper($c),$v);
         }
         define("APP_ROOT",rtrim($_SERVER["PHP_SELF"],"index.php"));
         // TODO : change with PATH_

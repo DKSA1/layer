@@ -93,7 +93,7 @@ class StringValidator
         return (filter_var($data, FILTER_VALIDATE_MAC) == $data);
     }
 
-    public static function info(string $data) : array
+    public static function info(string $data, bool $word = false, bool $occurrence = false) : array
     {
         $length = strlen($data);
 
@@ -109,15 +109,31 @@ class StringValidator
             else $sym++;
         }
 
+        $words = $word ? str_word_count($data, 2) : null;
+
         return [
             'uppercase' => $uc,
             'lowercase' => $lc,
             'number' => $num,
             'symbol' => $sym,
             'space' => $spa,
-            'word' => str_word_count($data),
+            'word' => $word ? count($words) : -1,
+            'words' => $word ? $words : null,
+            'occurrences' => $occurrence ? count_chars($data,1) : null,
+            'occurrence_ratio' => $occurrence ? (strlen(count_chars($data,3)) / $length) : -1,
             'length' => $length
         ];
+    }
+
+    public static function levenshtein(string $data, string $similar): int {
+        if($data == $similar) return 0;
+        return levenshtein($data, $similar);
+    }
+
+    public static function similarityPercent(string $main, string $data): float {
+        if($main == $data) return 100.0;
+        similar_text($main, $data, $percent);
+        return $percent;
     }
 
 }

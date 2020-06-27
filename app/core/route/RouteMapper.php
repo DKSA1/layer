@@ -24,9 +24,7 @@ class RouteMapper
         $sharedFolder = Configuration::get("locations/shared");
         $allFiles = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($sharedFolder));
         $phpFiles = new \RegexIterator($allFiles, '/\.php$/');
-        if(count($phpFiles)) {
-            require_once PATH."app/core/mvc/annotation/MVCAnnotations.php";
-        }
+
         $filtersStr = null;
         $filtersFile = [];
         foreach ($phpFiles as $phpFile) {
@@ -41,6 +39,11 @@ class RouteMapper
                 $filtersFile[rtrim(basename($phpFile), '.php')] = trim($phpFile);
             }
         }
+
+        if(count($filtersFile)) {
+            require_once PATH."app/core/mvc/annotation/MVCAnnotations.php";
+        }
+
         $filtersNamespace = preg_grep("/($filtersStr)/", get_declared_classes());
         foreach ($filtersNamespace as $fNamespace) {
             $reflectionClass = new \ReflectionAnnotatedClass($fNamespace);
@@ -141,7 +144,7 @@ class RouteMapper
                         "namespace" => $cNamespace,
                         "path" => trim($controllersFile[basename($cNamespace)]),
                         "filters_name" => $controllerFilters,
-                        "parameters" => self::infoParameters($reflectionController->getConstructor()),
+                        "parameters" => $reflectionController->getConstructor() ? self::infoParameters($reflectionController->getConstructor()) : [],
                         "actions" => []
                     ];
 
@@ -216,6 +219,7 @@ class RouteMapper
                             "forward" => $controllerRouteTemplate
                         ];
                     }
+
                 }
             } else if(($reflectionController->isSubclassOf(ErrorController::class) && $reflectionController->hasAnnotation('ErrorController'))
                 || ($reflectionController->isSubclassOf(ApiErrorController::class) && $reflectionController->hasAnnotation('ApiErrorController')))
@@ -299,6 +303,12 @@ class RouteMapper
                         }
                     }
                 }
+            }
+
+            // remove routes without actions
+            if(count($routes[$controllerRouteTemplate]['actions']) === 0)
+            {
+                unset($routes[$controllerRouteTemplate]);
             }
         }
         file_put_contents('app/core/config/routes_'.Configuration::$environment.'.json', json_encode($routes, JSON_PRETTY_PRINT));

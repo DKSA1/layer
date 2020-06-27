@@ -3,8 +3,43 @@
 namespace layer\core\utils;
 
 
-class ObjectBuilder
+class Builder
 {
+    /**
+     * @param $obj
+     * @param bool $copyOnlyPublicProperties
+     * @param bool $copyPropertiesWithGetters
+     * @return array
+     * @throws \ReflectionException
+     */
+    public static function object2Array($obj, $copyOnlyPublicProperties = true, $copyPropertiesWithGetters = true): array {
+        if(is_array($obj)) {
+            $arr = [];
+            foreach ($obj as $k => $v) {
+                $arr[$k] = is_object($v) || is_array($v) ? self::object2Array($v, $copyOnlyPublicProperties, $copyPropertiesWithGetters) : $v;
+            }
+            return $arr;
+        }
+        $res = [];
+        $reflectionClass = new \ReflectionClass(get_class($obj));
+        foreach ($reflectionClass->getProperties() as $p) {
+            if($p->isPublic()) {
+                $res[$p->name] = is_object($p->getValue($obj)) ? self::object2Array($p->getValue($obj), $copyOnlyPublicProperties, $copyPropertiesWithGetters) : $p->getValue($obj);
+            } else {
+                if($copyOnlyPublicProperties === true && $copyPropertiesWithGetters === false)
+                    continue;
+                if($copyOnlyPublicProperties === true) {
+                    $getter = 'get'.implode("", array_map('ucfirst', explode("_", $p->name)));
+                    if(!($reflectionClass->hasMethod($getter) && $reflectionClass->getMethod($getter)->isPublic()))
+                        continue;
+                }
+                $p->setAccessible(true);
+                $res[$p->name] = is_object($p->getValue($obj)) ? self::object2Array($p->getValue($obj), $copyOnlyPublicProperties, $copyPropertiesWithGetters) : $p->getValue($obj);
+                $p->setAccessible(false);
+            }
+        }
+        return $res;
+    }
     /**
      * @param string $namespace
      * @param array $data
@@ -12,14 +47,14 @@ class ObjectBuilder
      * @return array|object|null
      * @throws \Exception
      */
-    public static function build($namespace, $data = [], $isArray = false)
+    public static function array2Object($namespace, $data = [], $isArray = false)
     {
         if($isArray && is_array($data))
         {
             $arr = [];
             foreach ($data as $value)
             {
-                $res = self::build($namespace, $value);
+                $res = self::array2Object($namespace, $value);
                 if($res)
                     array_push($arr, $res);
             }
@@ -62,7 +97,7 @@ class ObjectBuilder
                         }
                         else
                         {
-                            $reflectionSetter->invokeArgs($obj, [self::build($docTypeInfo->namespace, $value, $docTypeInfo->isArray)]);
+                            $reflectionSetter->invokeArgs($obj, [self::array2Object($docTypeInfo->namespace, $value, $docTypeInfo->isArray)]);
                         }
                     }
                 }
@@ -77,5 +112,6 @@ class ObjectBuilder
         {
             return null;
         }
+
     }
 }

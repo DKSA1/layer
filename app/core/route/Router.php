@@ -24,8 +24,7 @@ use layer\core\mvc\controller\Controller;
 use layer\core\mvc\controller\ErrorController;
 use layer\core\mvc\filter\Filter;
 use layer\core\mvc\view\ViewManager;
-use layer\core\utils\Logger;
-use layer\core\utils\ObjectBuilder;
+use layer\core\utils\Builder;
 
 class Router {
     /**
@@ -254,10 +253,8 @@ class Router {
                     $result = $reflectionMethod->invokeArgs($this->controller, $actionParameters);
                     if($result != null)
                     {
-                        if(is_array($result) || is_object($result))
-                            $this->response->setDataArray($result);
-                        else
-                            $this->response->setMessageBody(strval($result));
+                        $this->setData($reflectionController, $result);
+                        // $reflectionController->setStaticPropertyValue("data", $result);
                     }
                     $this->applyFilters($actionMetaData['filters_name']);
                     $this->applyFilters($controllerFilters);
@@ -267,7 +264,7 @@ class Router {
                         $reflectionViewProperty = new \ReflectionClass($actionViewProperty);
                         $reflectionMethodViewProperty = $reflectionViewProperty->getMethod('generateView');
                         $reflectionMethodViewProperty->setAccessible(true);
-                        $this->response->setMessageBody($reflectionMethodViewProperty->invokeArgs($actionViewProperty, [$this->response->getData()]));
+                        $this->response->setMessageBody($reflectionMethodViewProperty->invokeArgs( $actionViewProperty, [$this->getData($reflectionController)] ));
 
                         // $layoutName = $actionMetaData['layout_name'];
                         // $viewTemplate = dirname($controllerMetaData['path'])."/view/".$actionMetaData['view_name'].".php";
@@ -276,7 +273,7 @@ class Router {
                     else
                     {
                         $this->response->setContentType(IHttpContentType::JSON);
-                        $this->response->setMessageBody(json_encode($this->response->getData()));
+                        $this->response->setMessageBody( json_encode( $this->getData($reflectionController) ));
                     }
                     return $this->response;
                 }
@@ -340,17 +337,15 @@ class Router {
         // overwrite response
         if($result != null)
         {
-            if(is_array($result) || is_object($result))
-                $this->response->setDataArray($result);
-            else
-                $this->response->setMessageBody(strval($result));
+            $this->setData($reflectionErrorController, $result);
+            // $reflectionErrorController->setStaticPropertyValue('data', $result);
         }
         if($actionViewProperty)
         {
             $reflectionViewProperty = new \ReflectionClass($actionViewProperty);
             $reflectionMethodViewProperty = $reflectionViewProperty->getMethod('generateView');
             $reflectionMethodViewProperty->setAccessible(true);
-            $this->response->setMessageBody($reflectionMethodViewProperty->invokeArgs($actionViewProperty, [$this->response->getData()]));
+            $this->response->setMessageBody($reflectionMethodViewProperty->invokeArgs($actionViewProperty, [$this->getData($reflectionErrorController)] ));
 
             // $layoutName = $actionMetaData['layout_name'];
             // $viewTemplate = dirname($controllerMetaData['path'])."/view/".$actionMetaData['view_name'].".php";
@@ -359,9 +354,24 @@ class Router {
         else
         {
             $this->response->setContentType(IHttpContentType::JSON);
-            $this->response->setMessageBody(json_encode($this->response->getData()));
+            $this->response->setMessageBody( json_encode($this->getData($reflectionErrorController)) );
         }
         return $this->response;
+    }
+
+    private function getData(\ReflectionClass $reflection) {
+        $prop = $reflection->getProperty("data");
+        $prop->setAccessible(true);
+        $val = $prop->getValue();
+        $prop->setAccessible(false);
+        return $val;
+    }
+
+    private function setData(\ReflectionClass $reflection, $data) {
+        $prop = $reflection->getProperty("data");
+        $prop->setAccessible(true);
+        $prop->setValue(null, $data);
+        $prop->setAccessible(false);
     }
 
     private function applyFilters($names) {
@@ -372,15 +382,14 @@ class Router {
                     require_once($this->shared[$key][$name]['path']);
                     $reflectionFilter = new \ReflectionClass($this->shared[$key][$name]['namespace']);
                     $this->filters[$name] = $reflectionFilter->newInstance();
-                    $result = $this->filters[$name]->enter();
+                    $result = $this->filters[$name]->beforeAction();
                 } else {
-                    $result = $this->filters[$name]->leave();
+                    $result = $this->filters[$name]->afterAction();
                 }
-                if($result != null) {
-                    if(is_array($result) || is_object($result))
-                        $this->response->setDataArray($result);
-                    else
-                        $this->response->setMessageBody(strval($result));
+                if($result != null)
+                {
+                    $this->setData(new \ReflectionClass($this->filters[$name]), $result);
+                    // $refl->setStaticPropertyValue("data", $result);
                 }
             }
         }
@@ -409,7 +418,7 @@ class Router {
         {
             if($param['internal'] == false)
             {
-                $checkedParameters[$param['name']] = ObjectBuilder::build($param['namespace'], $this->request->getRequestData(), $param['array']);
+                $checkedParameters[$param['name']] = Builder::array2Object($param['namespace'], $this->request->getRequestData(), $param['array']);
             }
             else
             {
