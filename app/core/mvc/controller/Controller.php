@@ -7,14 +7,14 @@
  */
 namespace layer\core\mvc\controller;
 
-use layer\core\mvc\view\ViewManager;
+use layer\core\manager\ViewManager;
 
 abstract class Controller extends CoreController {
 
     /**
      * @var ViewManager
      */
-    protected $viewManager;
+    protected static $viewManager;
 
     public abstract function index();
 

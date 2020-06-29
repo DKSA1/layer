@@ -20,10 +20,10 @@ use layer\core\http\IHttpContentType;
 use layer\core\http\IHttpHeaders;
 use layer\core\http\Request;
 use layer\core\http\Response;
+use layer\core\manager\ViewManager;
 use layer\core\mvc\controller\Controller;
 use layer\core\mvc\controller\ErrorController;
 use layer\core\mvc\filter\Filter;
-use layer\core\mvc\view\ViewManager;
 use layer\core\utils\Builder;
 
 class Router {
@@ -36,7 +36,6 @@ class Router {
      * @var Response $response
      */
     private $response;
-
     /**
      * @var Router
      */
@@ -92,26 +91,6 @@ class Router {
             return false;
     }
 
-    public function sendCORS($actionMetaData) {
-        if (isset($_SERVER['HTTP_ORIGIN'])) {
-            // origin you want to allow, and if so:
-            header("Access-Control-Allow-Origin: {$_SERVER['HTTP_ORIGIN']}");
-            header('Access-Control-Allow-Credentials: true');
-            header('Access-Control-Max-Age: 86400');
-        } else {
-            // No HTTP_ORIGIN set, so we allow any. You can disallow if needed here
-            header("Access-Control-Allow-Origin: *");
-        }
-        // Access-Control headers are received during OPTIONS requests
-        if (strtoupper($this->request->getRequestMethod()) == 'OPTIONS') {
-            if (isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD']))
-                header("Access-Control-Allow-Methods: " . implode(", ", $actionMetaData['request_methods']));
-            if (isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_HEADERS']))
-                header("Access-Control-Allow-Headers: {$_SERVER['HTTP_ACCESS_CONTROL_REQUEST_HEADERS']}");
-            exit(0);
-        }
-    }
-
     public function handleRequest($location = null) : Response {
         try {
             return $this->lookupRoute($location);
@@ -155,13 +134,14 @@ class Router {
                 $controller = $this->resolveFinalController($this->routes, $fc);
                 if(preg_match('/^'.str_replace("/", "\/", $fc).'$/', $baseUrl)) {
                     $action = $this->resolveFinalAction($controller, "");
-                    return $this->initializeControllerAction($controller, $action, [], $controllerParameters);
+                    if(in_array(strtolower($this->request->getRequestMethod()), $action['request_methods']))
+                        return $this->initializeControllerAction($controller, $action, [], $controllerParameters);
                 }
                 $actionRoutes = array_keys($controller['actions']);
                 $filteredAction = array_filter($actionRoutes, function ($actionTemplate) use ($fc, $baseUrl, $controller, &$actionParameters) {
                     $actionName = explode(" ",$actionTemplate);
                     $actionName = isset($actionName[1]) ? $actionName[1] : "";
-                    if($actionName == "") return false;
+                    // if($actionName == "") return false;
                     $temp = trim($fc.'/'.$actionName,'/');
                     $temp = str_replace("/", "\/", $temp);
                     return preg_match('/'.$temp.'/', $baseUrl, $actionParameters[$actionTemplate]);
@@ -208,7 +188,8 @@ class Router {
     private function initializeControllerAction($controllerMetaData, $actionMetaData, $actionParams = [], $controllerParams = []) {
         if (file_exists($controllerMetaData['path']))
         {
-            $this->sendCORS($actionMetaData);
+            // TODO : remove
+            // $this->sendCORS($actionMetaData);
             if(!array_key_exists('layout_name', $actionMetaData) && !array_key_exists('view_name', $actionMetaData))
             {
                 $this->apiCall = true;
@@ -273,7 +254,9 @@ class Router {
                     else
                     {
                         $this->response->setContentType(IHttpContentType::JSON);
-                        $this->response->setMessageBody( json_encode( $this->getData($reflectionController) ));
+                        $body = $this->getData($reflectionController);
+                        if($body)
+                            $this->response->setMessageBody( json_encode( $body ));
                     }
                     return $this->response;
                 }
@@ -354,7 +337,9 @@ class Router {
         else
         {
             $this->response->setContentType(IHttpContentType::JSON);
-            $this->response->setMessageBody( json_encode($this->getData($reflectionErrorController)) );
+            $body = $this->getData($reflectionErrorController);
+            if($body)
+                $this->response->setMessageBody( json_encode($body) );
         }
         return $this->response;
     }
@@ -382,6 +367,14 @@ class Router {
                     require_once($this->shared[$key][$name]['path']);
                     $reflectionFilter = new \ReflectionClass($this->shared[$key][$name]['namespace']);
                     $this->filters[$name] = $reflectionFilter->newInstance();
+                    $req = $reflectionFilter->getProperty("request");
+                    $req->setAccessible(true);
+                    $req->setValue($this->filters[$name], $this->request);
+                    $req->setAccessible(false);
+                    $res = $reflectionFilter->getProperty('response');
+                    $res->setAccessible(true);
+                    $res->setValue($this->filters[$name], $this->response);
+                    $res->setAccessible(false);
                     $result = $this->filters[$name]->beforeAction();
                 } else {
                     $result = $this->filters[$name]->afterAction();
@@ -407,7 +400,7 @@ class Router {
     }
 
     private function handleRedirect(ERedirect $e) {
-        $this->response->putHeader(IHttpHeaders::Location, $e->getLocation());
+        $this->response->setHeader(IHttpHeaders::Location, $e->getLocation());
         $this->response->setResponseCode($e->getHttpCode());
         return $this->response;
     }

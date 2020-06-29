@@ -9,6 +9,8 @@ use layer\core\http\IHttpCodes;
 use layer\core\http\IHttpHeaders;
 use layer\core\http\Request;
 use layer\core\http\Response;
+use layer\core\manager\CorsManager;
+use layer\core\manager\SessionManager;
 use layer\core\utils\Logger;
 
 abstract class CoreController
@@ -24,7 +26,7 @@ abstract class CoreController
 
     protected static $data;
 
-    }
+    protected static $shared;
 
     protected final function forward($internalUrl)
     {
@@ -36,5 +38,13 @@ abstract class CoreController
     {
         Logger::write('Redirecting to '.$location);
         throw new ERedirect($location, $httpCode);
+    }
+
+    protected final function session(): SessionManager {
+        return SessionManager::getInstance();
+    }
+
+    protected final function cors() : CorsManager {
+        return CorsManager::getInstance(self::$request, self::$response);
     }
 }

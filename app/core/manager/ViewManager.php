@@ -1,10 +1,12 @@
 <?php
 
-namespace layer\core\mvc\view;
+namespace layer\core\manager;
 
 use layer\core\config\Configuration;
 use layer\core\html\Script;
 use layer\core\html\Style;
+use layer\core\mvc\view\Layout;
+use layer\core\mvc\view\View;
 
 class ViewManager
 {

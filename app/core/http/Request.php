@@ -121,8 +121,7 @@ class Request
         $this->serverPort = intval($_SERVER['SERVER_PORT']);
         $this->requestTime = $_SERVER['REQUEST_TIME_FLOAT'];
 
-        $contentType = $this->getHeader(IHttpHeaders::Content_Type);
-        $this->contentType = isset($contentType[0]) ? $contentType[0] : null;
+        $this->contentType = $this->getHeader(IHttpHeaders::Content_Type);
 
         if(strtolower($this->requestMethod) === 'put')
         {
@@ -343,18 +342,22 @@ class Request
         }
     }
 
-    public function getHeader($name): array
+    /**
+     * @param $name
+     * @return string|null
+     */
+    public function getHeader($name)
     {
         $name = strtoupper(str_replace('-', '_', $name));
         if(array_key_exists($name, $_SERVER))
         {
-            return explode(',', $_SERVER[$name]);
+            return $_SERVER[$name];
         }
         else if(array_key_exists("HTTP_".$name, $_SERVER))
         {
-            return explode(',', $_SERVER["HTTP_".$name]);
+            return $_SERVER["HTTP_".$name];
         }
-        return [];
+        return null;
     }
 
     /**
