@@ -26,6 +26,10 @@ abstract class MVCAnnotation extends Annotation
         }
         return null;
     }
+
+    public function getFilters() {
+        return array_map('strtolower', $this->filters);
+    }
 }
 
 /** @Target("class") */
