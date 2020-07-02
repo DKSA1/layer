@@ -17,7 +17,11 @@ class SessionManager
 
     public static function getInstance() : SessionManager
     {
-        if(self::$instance == null) self::$instance = new SessionManager();
+        if(self::$instance == null)
+        {
+            self::$instance = new SessionManager();
+            self::$instance->start();
+        }
         return self::$instance;
     }
 

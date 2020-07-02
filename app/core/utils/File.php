@@ -7,6 +7,14 @@ namespace layer\core\utils;
 class File
 {
     /**
+     * @var bool
+     */
+    private $loaded;
+    /**
+     * @var string
+     */
+    private $content;
+    /**
      * @var string
      */
     private $uploadName;
@@ -83,18 +91,17 @@ class File
             $this->uploadName = $uploadName;
             $this->mimeType = $mimeType;
             $this->path = $path;
-            $this->absolutePath = realpath($path);
-            $this->name = basename($path);
-            $this->type = filetype($path);
-            $this->size = filesize($path);
-            $this->readable = is_readable($path);
-            $this->executable = is_executable($path);
-            $this->uploadFile = is_uploaded_file($path);
-            $this->writeable = is_writeable($path);
-            $this->creationTime = filectime($path);
-            $this->lastModificationTime = filemtime($path);
-            $this->lastAccessTime = fileatime($path);
-            $this->extension = pathinfo($this->absolutePath, PATHINFO_EXTENSION);
+            $this->loaded = false;
+    }
+
+    public function load() {
+        if($this->isDeleted() || $this->loaded) return false;
+        if($data = file_get_contents($this->getAbsolutePath())) {
+            $this->content = $data;
+            $this->loaded = true;
+            return true;
+        }
+        return false;
     }
 
     public function touch() {
@@ -143,6 +150,9 @@ class File
      */
     public function getAbsolutePath()
     {
+        if(!$this->absolutePath) {
+            $this->absolutePath = realpath($this->path);
+        }
         return $this->absolutePath;
     }
 
@@ -159,6 +169,9 @@ class File
      */
     public function getName()
     {
+        if(!$this->name) {
+            $this->name = basename($this->path);
+        }
         return $this->name;
     }
 
@@ -167,6 +180,9 @@ class File
      */
     public function getType()
     {
+        if(!$this->type) {
+            $this->type = filetype($this->path);
+        }
         return $this->type;
     }
 
@@ -175,6 +191,9 @@ class File
      */
     public function getExtension()
     {
+        if($this->extension === null) {
+            $this->extension = pathinfo($this->absolutePath, PATHINFO_EXTENSION);
+        }
         return $this->extension;
     }
 
@@ -183,6 +202,9 @@ class File
      */
     public function getSize()
     {
+        if(!$this->size) {
+            $this->size = filesize($this->path);
+        }
         return $this->size;
     }
 
@@ -191,6 +213,9 @@ class File
      */
     public function isReadable()
     {
+        if($this->readable === null) {
+            $this->readable = is_readable($this->path);
+        }
         return $this->readable;
     }
 
@@ -199,6 +224,9 @@ class File
      */
     public function isExecutable(): bool
     {
+        if($this->executable === null) {
+            $this->executable = is_executable($this->path);
+        }
         return $this->executable;
     }
 
@@ -207,6 +235,9 @@ class File
      */
     public function isUploadFile()
     {
+        if($this->uploadFile === null) {
+            $this->uploadFile = is_uploaded_file($this->path);
+        }
         return $this->uploadFile;
     }
 
@@ -215,6 +246,9 @@ class File
      */
     public function isWriteable()
     {
+        if($this->writeable === null) {
+            $this->writeable = is_writeable($this->path);
+        }
         return $this->writeable;
     }
 
@@ -223,6 +257,9 @@ class File
      */
     public function getCreationTime()
     {
+        if($this->creationTime === null) {
+            $this->creationTime = filectime($this->path);
+        }
         return $this->creationTime;
     }
 
@@ -231,6 +268,9 @@ class File
      */
     public function getLastModificationTime()
     {
+        if($this->lastModificationTime === null) {
+            $this->lastModificationTime = filemtime($this->path);
+        }
         return $this->lastModificationTime;
     }
 
@@ -239,6 +279,9 @@ class File
      */
     public function getLastAccessTime()
     {
+        if($this->lastAccessTime === null) {
+            $this->lastAccessTime = fileatime($this->path);
+        }
         return $this->lastAccessTime;
     }
 
@@ -264,6 +307,22 @@ class File
     public function getMimeType(): string
     {
         return $this->mimeType;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isLoaded(): bool
+    {
+        return $this->loaded;
+    }
+
+    /**
+     * @return string
+     */
+    public function getContent(): string
+    {
+        return $this->content;
     }
 
 }

@@ -8,20 +8,22 @@ require_once(PATH . 'app/lib/addendum/annotations.php');
 
 abstract class MVCAnnotation extends Annotation
 {
-    // TODO : remove this if unused
-    public function grepRouteTemplateParameters() {
+    private function grepRouteTemplateParameters() {
         $params = [];
-        preg_match('/{#?(\w+)\??}/', $this->routeTemplate, $params);
-        return count($params) >= 1 ? array_slice($params, 1) : [];
+        preg_match_all('/{#?(\w+)\??}/', $this->routeTemplate, $params);
+        return count($params) >= 1 ? array_slice($params, 1)[0] : [];
     }
 
     public function verifyRouteTemplate() {
         if(preg_match('/^[a-zA-Z0-9\/{}?#]+$/', $this->routeTemplate)) {
             $res = $this->routeTemplate;
-            $res = preg_replace('/{#(\w+)}/', '(\d+)', $res);
-            $res = preg_replace('/{\/?#(\w+)\?}/', '?(\d*)', $res);
-            $res = preg_replace('/{(\w+)}/', '(\w+)' , $res);
-            $res = preg_replace('/{\/?(\w+)\?}/', '?(\w*)' ,$res);
+            foreach ($this->grepRouteTemplateParameters() as $param) {
+                // (\w+)
+                $res = preg_replace("/{#".$param."}/", "(?<".$param.">\d+)", $res);
+                $res = preg_replace("/{\/?#".$param."\?}/", "?(?<".$param.">\d*)", $res);
+                $res = preg_replace("/{".$param."}/", "(?<".$param.">[^/]+)" , $res);
+                $res = preg_replace("/{\/?".$param."\?}/", "?(?<".$param.">[^/]*)" ,$res);
+            }
             return $res;
         }
         return null;

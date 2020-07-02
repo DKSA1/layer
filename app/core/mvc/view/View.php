@@ -9,14 +9,14 @@ class View implements IView
     private $viewTemplate;
     private $viewData = [];
 
-    public function __construct(string $viewTemplate)
+    public function __construct($viewTemplate)
     {
         $this->setViewTemplate($viewTemplate);
     }
 
-    public function setViewTemplate(string $viewTemplate)
+    public function setViewTemplate($viewTemplate)
     {
-        if(is_file($viewTemplate) && is_readable($viewTemplate))
+        if($viewTemplate && is_file($viewTemplate) && is_readable($viewTemplate))
         {
             $this->viewTemplate = $viewTemplate;
         }

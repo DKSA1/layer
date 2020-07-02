@@ -33,7 +33,7 @@ class ViewManager
     /**
      * @var string[]
      */
-    private $shared;
+    private $views;
     /**
      * @var Style[]
      */
@@ -42,30 +42,33 @@ class ViewManager
      * @var Script[]
      */
     private $scripts;
+    /**
+     * @var ViewManager
+     */
+    private static $instance;
 
-    public static function build($pathToView, $shared)
+    public static function getInstance($views = null) : ViewManager
     {
-        if(file_exists($pathToView))
-        {
-            return new ViewManager($pathToView, $shared);
-        }
-        return null;
+        if(self::$instance == null && $views) self::$instance = new ViewManager($views);
+        return self::$instance;
     }
 
-    private function __construct($pathToView, $shared)
+    private function __construct($views)
     {
-        $this->shared = $shared;
-        $this->afterViews = [];
-        $this->beforeViews = [];
-        $this->contentView = basename($pathToView,'.php');
-        $this->viewDirectory = dirname($pathToView);
+        $this->views = $views;
+    }
+
+    public function setBase($baseDirectory) {
+        $this->viewDirectory = dirname($baseDirectory)."/view";
         $this->styles = [];
         $this->scripts = [];
+        $this->afterViews = [];
+        $this->beforeViews = [];
     }
 
     private function loadLayout($layoutName)
     {
-        if(Configuration::get("layouts/$layoutName", false))
+        if($layoutName && Configuration::get("layouts/$layoutName", false))
         {
             $this->layoutName = $layoutName;
             $this->beforeViews = Configuration::get("layouts/$layoutName/before", false);
@@ -86,7 +89,7 @@ class ViewManager
      * @param string $layoutName
      * @return bool
      */
-    public function setLayoutName(string $layoutName)
+    public function setLayoutName($layoutName)
     {
         return $this->loadLayout($layoutName);
     }
@@ -139,9 +142,9 @@ class ViewManager
      * @param string $contentView
      * @return bool
      */
-    public function setContentView(string $contentView)
+    public function setContentView($contentView)
     {
-        if(file_exists($this->viewDirectory."/$contentView.php"))
+        if($contentView && file_exists($this->viewDirectory."/$contentView.php"))
         {
             $this->contentView = $contentView;
             return true;
@@ -186,27 +189,28 @@ class ViewManager
 
     private function sharedViewExists($viewName)
     {
-        if(array_key_exists($viewName, $this->shared) && file_exists($this->shared[$viewName]))
+        if(array_key_exists($viewName, $this->views) && file_exists($this->views[$viewName]))
         {
             return true;
         }
         return false;
     }
 
-    protected function generateView($data = [])
+    public function render($data = [])
     {
-        $compositeView = new Layout();
+        $layout = new Layout();
         foreach ($this->beforeViews as $view)
         {
-            $compositeView->appendView(new View($this->shared[$view]));
+            $layout->appendView(new View($this->views[$view]));
         }
-        $compositeView->appendView(new View($this->viewDirectory."/".$this->contentView.".php"));
+        if($this->contentView)
+            $layout->appendView(new View($this->viewDirectory."/".$this->contentView.".php"));
         foreach ($this->afterViews as $view)
         {
-            $compositeView->appendView(new View($this->shared[$view]));
+            $layout->appendView(new View($this->views[$view]));
         }
 
-        return $compositeView->render(
+        return $layout->render(
             array_merge($data,
             [
                 "__scripts" => implode("",array_map(function (Script $script) { return $script->render(); }, $this->scripts)),

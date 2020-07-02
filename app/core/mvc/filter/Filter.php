@@ -12,6 +12,6 @@ use layer\core\mvc\controller\CoreController;
 
 abstract class Filter extends CoreController
 {
-    abstract public function beforeAction();
-    abstract public function afterAction();
+    abstract public function in();
+    abstract public function out();
 }

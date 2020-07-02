@@ -10,8 +10,9 @@ use layer\core\http\IHttpHeaders;
 use layer\core\http\Request;
 use layer\core\http\Response;
 use layer\core\manager\CorsManager;
+use layer\core\manager\FilterManager;
 use layer\core\manager\SessionManager;
-use layer\core\utils\Logger;
+use layer\core\utils\LogManager;
 
 abstract class CoreController
 {
@@ -28,15 +29,19 @@ abstract class CoreController
 
     protected static $shared;
 
+    public function __construct()
+    {
+        self::$request = Request::getInstance();
+        self::$response = Response::getInstance();
+    }
+
     protected final function forward($internalUrl)
     {
-        Logger::write("Forwarding request to new location: ".$internalUrl);
         throw new EForward(trim($internalUrl,'/'));
     }
 
     protected final function redirect($location, $httpCode = IHttpCodes::MovedTemporarily)
     {
-        Logger::write('Redirecting to '.$location);
         throw new ERedirect($location, $httpCode);
     }
 
@@ -46,5 +51,9 @@ abstract class CoreController
 
     protected final function cors() : CorsManager {
         return CorsManager::getInstance(self::$request, self::$response);
+    }
+
+    protected final function filters() : FilterManager {
+        return FilterManager::getInstance();
     }
 }

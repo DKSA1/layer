@@ -375,9 +375,9 @@ class Router {
                     $res->setAccessible(true);
                     $res->setValue($this->filters[$name], $this->response);
                     $res->setAccessible(false);
-                    $result = $this->filters[$name]->beforeAction();
+                    $result = $this->filters[$name]->in();
                 } else {
-                    $result = $this->filters[$name]->afterAction();
+                    $result = $this->filters[$name]->out();
                 }
                 if($result != null)
                 {

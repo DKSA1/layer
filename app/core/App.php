@@ -10,8 +10,13 @@ namespace layer\core;
 
 use layer\core\config\Configuration;
 use layer\core\http\Request;
-use layer\core\route\Router;
-
+use layer\core\http\Response;
+use layer\core\manager\ControllerManager;
+use layer\core\manager\FilterManager;
+use layer\core\manager\LogManager;
+use layer\core\manager\MapManager;
+use layer\core\manager\RouteManager;
+use layer\core\manager\ViewManager;
 
 class App
 {
@@ -21,10 +26,6 @@ class App
      */
     private static $instance;
     /**
-     * @var Router $router
-     */
-    private $router;
-    /**
      * @var callable $appErrorCallback
      */
     private $appErrorCallback;
@@ -32,7 +33,38 @@ class App
      * @var callable $appFinallyCallback
      */
     private $appFinallyCallback;
-
+    /**
+     * @var Request
+     */
+    private $request;
+    /**
+     * @var Response
+     */
+    private $response;
+    /**
+     * @var MapManager
+     */
+    private $mapManager;
+    /**
+     * @var FilterManager
+     */
+    private $filterManager;
+    /**
+     * @var LogManager
+     */
+    private $logManager;
+    /**
+     * @var RouteManager
+     */
+    private $routeManager;
+    /**
+     * @var ControllerManager
+     */
+    private $controllerManager;
+    /**
+     * @var ViewManager
+     */
+    private $viewManager;
 
     public static function getInstance() : App
     {
@@ -44,34 +76,50 @@ class App
     {
         define("PATH", rtrim($_SERVER['SCRIPT_FILENAME'],"index.php"));
 
+        $this->request = Request::getInstance();
+        $this->response = Response::getInstance();
+
         Configuration::load();
 
         $this->registerGlobals();
-        //$this->builder = EntityBuilder::getInstance();
+
+        $this->initManagers();
+
+    }
+
+    private function initManagers() {
+        try {
+            $this->mapManager = MapManager::getInstance();
+            if(Configuration::get('environment/'.Configuration::$environment.'/buildRoutesMap')) {
+                $this->mapManager->build();
+            } else {
+                $this->mapManager->load();
+            }
+            $this->filterManager = FilterManager::getInstance($this->mapManager->getMap()['shared']['filters'], $this->mapManager->getMap()['shared']['globals']);
+            $this->routeManager = RouteManager::getInstance($this->mapManager->getRoutes());
+            $this->controllerManager = ControllerManager::getInstance($this->mapManager->getMap()['controllers']);
+            // TODO : instantiate only if route hasView or hasLayout
+            $this->viewManager = ViewManager::getInstance($this->mapManager->getMap()['shared']['views']);
+            $this->logManager = LogManager::getInstance($this->request);
+        } catch(\Exception $e) {
+
+        }
     }
 
     public function handleRequest() {
 
         $this->startTime = microtime(true);
 
-        $request = Request::getInstance();
+        $this->routeManager->run($this->request->getBaseUrl(), $this->request->getRequestMethod());
+        // TODO : return route
 
-        $this->router = Router::getInstance($request);
+        // TODO : execute controllerManager with filterManager and active route
 
-        $response = $this->router->handleRequest();
+        // TODO : handle result if it's an api or site
 
-        if($response)
-        {
-            $response->sendResponse();
+        // TODO : send response
+        $this->response->sendResponse();
 
-            if($this->appFinallyCallback)
-                call_user_func_array($this->appFinallyCallback, [$response]);
-        }
-        else
-        {
-            if($this->appErrorCallback)
-                call_user_func_array($this->appErrorCallback, [$request]);
-        }
     }
 
     private function registerGlobals(){
@@ -83,10 +131,6 @@ class App
         }
         define("APP_ROOT",rtrim($_SERVER["PHP_SELF"],"index.php"));
         // TODO : change with PATH_
-        // define("APP_PUBLIC", APP_ROOT."public");
-        // define("APP_SERVICES",APP_ROOT."app/services");
-        // define("APP_CORE",APP_ROOT."app/core");
-        // define("APP_LIB",APP_ROOT."app/lib");
     }
 
     /**

@@ -3,6 +3,8 @@
 namespace layer\core\manager;
 
 use layer\core\config\Configuration;
+use layer\core\error\EConfiguration;
+use layer\core\http\IHttpCodes;
 use layer\core\mvc\controller\ApiController;
 use layer\core\mvc\controller\ApiErrorController;
 use layer\core\mvc\controller\Controller;
@@ -10,15 +12,29 @@ use layer\core\mvc\controller\ErrorController;
 use layer\core\mvc\filter\Filter;
 use layer\core\utils\DocCommentParser;
 use layer\core\utils\DocTypeInfo;
+use layer\core\utils\File;
 
 class MapManager
 {
 
+    private $routes;
+    private $map;
     private $viewsDir;
     private $filtersDir;
     private $modulesDir;
 
-    public function __construct()
+    /**
+     * @var MapManager
+     */
+    private static $instance;
+
+    public static function getInstance() : MapManager
+    {
+        if(self::$instance == null) self::$instance = new MapManager();
+        return self::$instance;
+    }
+
+    private function __construct()
     {
         $shared = Configuration::get("locations/shared");
         $modules = Configuration::get("locations/services");
@@ -27,16 +43,30 @@ class MapManager
         $this->modulesDir = $modules;
     }
 
-    // scan all files (shared and routes)
-    public function scan() {
-        $routes = [];
-        $map = [
+    // load existing files
+    public function load() {
+        // map
+        $file = File::getInstance(PATH."app\core\config\\map.json");
+        if(!$file) throw new EConfiguration("File map.json not found", IHttpCodes::InternalServerError);
+        $file->load();
+        $this->map = json_decode($file->getContent(), true);
+        // routes
+        $file = File::getInstance(PATH."app\core\config\\routes.json");
+        if(!$file) throw new EConfiguration("File routes.json not found", IHttpCodes::InternalServerError);
+        $file->load();
+        $this->routes = json_decode($file->getContent(), true);
+    }
+
+    // build map and routes files
+    public function build() {
+        $this->routes = [];
+        $this->map = [
             "shared" => [
                 "globals" => [],
                 "filters" => [],
                 "views" => []
             ],
-            "modules" => [
+            "controllers" => [
 
             ]
         ];
@@ -62,12 +92,12 @@ class MapManager
                             } else {
                                 $filterName = strtolower(str_ireplace("Filter", "", basename($namespace)));
                             }
-                            $map['shared']['filters'][$filterName] = [
+                            $this->map['shared']['filters'][$filterName] = [
                                 "namespace" => $namespace,
-                                "path" => $fileNames[basename($namespace)]
+                                "path" => realpath($fileNames[basename($namespace)])
                             ];
                             if($annotation instanceof \GlobalFilter) {
-                                array_push($map['shared']['globals'], $filterName);
+                                array_push($this->map['shared']['globals'], $filterName);
                             }
                     }
                 }
@@ -78,10 +108,10 @@ class MapManager
             $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($this->viewsDir));
             $viewFiles = new \RegexIterator($files, "/\.(php|html)$/");
             foreach ($viewFiles as $view) {
-                $map["shared"]["views"][preg_replace("/\.(php|html)$/", "", trim(str_replace($this->viewsDir, "", $view), DIRECTORY_SEPARATOR))] = trim($view->getPathName());
+                $this->map["shared"]["views"][preg_replace("/\.(php|html)$/", "", str_replace("\\", "/", trim(str_replace($this->viewsDir, "", $view), DIRECTORY_SEPARATOR)))] = realpath(trim($view->getPathName()));
             }
         }
-        // modules
+        // controllers
         if(file_exists($this->modulesDir)) {
             $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($this->modulesDir));
             $modFiles = new \RegexIterator($files, '/\.*controller.*.php$/i');
@@ -145,7 +175,7 @@ class MapManager
                         $controllerAnnotation = $reflectionClass->getAnnotation('ApiController');
                         $defaultActionName = $reflectionClass->hasMethod($controllerAnnotation->defaultAction) ? $controllerAnnotation->defaultAction : null;
                         $routeTemplate = Configuration::get('environment/'.Configuration::$environment.'/apiRouteTemplate')."/".($controllerAnnotation->verifyRouteTemplate() ? $controllerAnnotation->verifyRouteTemplate() : str_ireplace("controller", "", basename($reflectionClass->name)));
-                        $filters = $this->checkFilter($controllerAnnotation->getFilters(), $map);
+                        $filters = $this->checkFilter($controllerAnnotation->getFilters(), $this->map);
                     }
                     else if($reflectionClass->isSubclassOf(Controller::class) && ( $reflectionClass->hasAnnotation('Controller') || $reflectionClass->hasAnnotation('DefaultController')))
                     {
@@ -157,13 +187,14 @@ class MapManager
                         $defaultActionName = $reflectionClass->hasMethod($controllerAnnotation->defaultAction) ? $controllerAnnotation->defaultAction : null;
                         $routeTemplate = Configuration::get('environment/'.Configuration::$environment.'/routeTemplate')."/".($controllerAnnotation->verifyRouteTemplate() ? $controllerAnnotation->verifyRouteTemplate() : str_ireplace("controller", "", basename($reflectionClass->name)));
                         $layoutName = $controllerAnnotation->layoutName;
-                        $filters = $this->checkFilter($controllerAnnotation->getFilters(), $map);
+                        $filters = $this->checkFilter($controllerAnnotation->getFilters(), $this->map);
                         if($controllerAnnotation instanceof \DefaultController) $defaultController = true;
                     }
-                    $map['modules'][$namespace] = [
+                    $this->map['controllers'][$namespace] = [
                         "path" => $fileNames[basename($namespace)],
-                        "parameters" => $reflectionClass->hasMethod('__construct') ? $this->getParameters($reflectionClass->getConstructor()) : [],
                         "filters" => $filters,
+                        "api" => $isApi,
+                        "parameters" => $reflectionClass->hasMethod('__construct') ? $this->getParameters($reflectionClass->getConstructor()) : [],
                         "actions" => []
                     ];
                     $routeTemplate = trim($routeTemplate, "/");
@@ -188,7 +219,7 @@ class MapManager
                                         /**
                                          * @var \ErrorAction $actionAnnotation
                                          */
-                                        $viewName = $this->checkView($m->name, $actionAnnotation->viewName, dirname($fileNames[basename($namespace)]). DIRECTORY_SEPARATOR . "view" . DIRECTORY_SEPARATOR . $viewName);
+                                        $viewName = $this->checkView($m->name, $actionAnnotation->viewName, dirname($fileNames[basename($namespace)]). DIRECTORY_SEPARATOR . "view" . DIRECTORY_SEPARATOR);
                                     }
                                     array_push($methods, '*');
                                     array_push($routeTemplates, ...$actionAnnotation->errorCodes);
@@ -201,14 +232,13 @@ class MapManager
                                         /**
                                          * @var \Action $actionAnnotation
                                          */
-                                        $viewName = $this->checkView($m->name, $actionAnnotation->viewName, dirname($fileNames[basename($namespace)]). DIRECTORY_SEPARATOR . "view" . DIRECTORY_SEPARATOR . $viewName);
+                                        $viewName = $this->checkView($m->name, $actionAnnotation->viewName, dirname($fileNames[basename($namespace)]). DIRECTORY_SEPARATOR . "view" . DIRECTORY_SEPARATOR);
                                     }
-                                    $actionFilters = $this->checkFilter($actionAnnotation->getFilters(), $map);
+                                    $actionFilters = $this->checkFilter($actionAnnotation->getFilters(), $this->map);
                                     array_push($methods, ...$actionAnnotation->verifyMethods());
                                     array_push($routeTemplates, $actionAnnotation->verifyRouteTemplate() ? $actionAnnotation->verifyRouteTemplate() : $m->name);
                                 }
-
-                                $map['modules'][$namespace]['actions'][$m->name] = [
+                                $this->map['controllers'][$namespace]['actions'][$m->name] = [
                                     "filters" => array_diff($actionFilters, $filters),
                                     "view" => $isApi ? null : $viewName,
                                     "layout" => $isApi ? null : $this->checkLayout($layoutName, $actionAnnotation->layoutName),
@@ -221,14 +251,17 @@ class MapManager
                                 // add routes
                                 foreach ($methods as $method) {
                                     // add to routes
-                                    if(!array_key_exists($method, $routes)) {
-                                        $routes[$method] = [];
+                                    if(!array_key_exists($method, $this->routes)) {
+                                        $this->routes[$method] = [];
                                     }
                                     foreach ($routeTemplates as $template) {
-                                        $routes[$method][trim($routeTemplate."/".$template, "/")] = $handler.$m->name;
+                                        $this->routes[$method][trim($routeTemplate."/".$template, "/")] = $handler.$m->name;
                                         if($defaultController)
-                                            $routes[$method][Configuration::get('environment/'.Configuration::$environment."/routeTemplate")] = $handler.$defaultActionName;
+                                            $this->routes[$method][Configuration::get('environment/'.Configuration::$environment."/routeTemplate")] = $handler.$defaultActionName;
                                     }
+                                    uksort($this->routes[$method], function($a, $b) {
+                                        return strcmp($b, $a) ?: strlen($b) <=> strlen($a);
+                                    });
                                 }
                             }
                         }
@@ -236,8 +269,7 @@ class MapManager
                 }
             }
         }
-
-        $this->save($routes, $map);
+        $this->save($this->routes, $this->map);
     }
 
     private function checkFilter($actionFilters, $map) {
@@ -249,7 +281,7 @@ class MapManager
 
     private function checkView($methodName, $actionViewName, $controllerDirectory) {
         $viewName = $actionViewName ? $actionViewName : $methodName;
-        if(!file_exists($controllerDirectory.".php") && !file_exists($controllerDirectory.".html")) {
+        if(!file_exists($controllerDirectory.$viewName.".php") && !file_exists($controllerDirectory.$viewName.".html")) {
             $viewName = null;
         }
         return $viewName;
@@ -290,5 +322,13 @@ class MapManager
     private function save(array $routes, array $map) {
         file_put_contents('app/core/config/map.json', json_encode($map, JSON_PRETTY_PRINT));
         file_put_contents('app/core/config/routes.json', json_encode($routes, JSON_PRETTY_PRINT));
+    }
+
+    public function getMap() {
+        return $this->map;
+    }
+
+    public function getRoutes() {
+        return $this->routes;
     }
 }
