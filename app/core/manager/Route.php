@@ -34,36 +34,18 @@ class Route
     /**
      * @var bool
      */
-    private $isError;
-    /**
-     * @var bool
-     */
-    private $hasView;
-    /**
-     * @var bool
-     */
-    private $hasLayout;
-    /**
-     * @var string[] $filters
-     */
-    private $filters;
-    /**
-     * @var string
-     */
-    private $controllerFile;
+    private $isError = false;
 
     public function __construct(string $namespace, string $action, string $method, string $routePath, array $params = [])
     {
         $this->controllerNamespace = $namespace;
         $this->controllerAction = $action;
         $this->method = $method;
+        if($this->method === "*")
+            $this->isError = true;
         $this->routePath = $routePath;
         $this->params = $params;
-    }
-
-    public function run() {
-        $c = ControllerManager::getInstance();
-        $c->run($this->controllerNamespace, $this->controllerAction, $this->params, $this->method === '*' ? true : false);
+        // $this->isApi = $isApi;
     }
 
     /**
@@ -80,6 +62,46 @@ class Route
     public function getMethod()
     {
         return $this->method;
+    }
+
+    /**
+     * @return string
+     */
+    public function getControllerNamespace(): string
+    {
+        return $this->controllerNamespace;
+    }
+
+    /**
+     * @return string
+     */
+    public function getControllerAction(): string
+    {
+        return $this->controllerAction;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isError(): bool
+    {
+        return $this->isError;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getParams(): array
+    {
+        return $this->params;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isApi(): bool
+    {
+        return $this->isApi;
     }
 
 }

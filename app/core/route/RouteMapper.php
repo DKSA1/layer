@@ -41,7 +41,7 @@ class RouteMapper
         }
 
         if(count($filtersFile)) {
-            require_once PATH."app/core/mvc/annotation/MVCAnnotations.php";
+            require_once APP_PATH."app/core/mvc/annotation/MVCAnnotations.php";
         }
 
         $filtersNamespace = preg_grep("/($filtersStr)/", get_declared_classes());
@@ -99,7 +99,7 @@ class RouteMapper
 
         if(count($controllersFile))
         {
-            require_once PATH."app/core/mvc/annotation/MVCAnnotations.php";
+            require_once APP_PATH."app/core/mvc/annotation/MVCAnnotations.php";
         }
 
         $controllersNamespace = preg_grep("/($controllersStrRegex)/", get_declared_classes());
@@ -370,6 +370,6 @@ class RouteMapper
             $urlset->appendChild($url);
         }
         $dom->appendChild($urlset);
-        $dom->save(PATH.'/public/sitemap.xml');
+        $dom->save(APP_PATH.'/public/sitemap.xml');
     }
 }

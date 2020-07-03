@@ -22,18 +22,8 @@ class FilterManager
      * @var string[]
      */
     private $actives;
-    /**
-     * @var FilterManager
-     */
-    private static $instance;
 
-    public static function getInstance(array $filters = null, array $globals = null) : FilterManager
-    {
-        if(self::$instance == null && $filters && $globals) self::$instance = new FilterManager($filters, $globals);
-        return self::$instance;
-    }
-
-    private function __construct($filters, $globals)
+    public function __construct($filters, $globals)
     {
         $this->filters = $filters;
         $this->globals = $globals;
@@ -44,6 +34,10 @@ class FilterManager
     // checks if filter exists from it's name
     public function exists($name) {
         return array_key_exists($name, $this->filters);
+    }
+
+    public function clear() {
+        $this->actives = [];
     }
 
     public function add($name, $position = null): bool {

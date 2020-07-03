@@ -15,7 +15,6 @@ class ApiErrorController extends ApiController
 
     public function __construct(ELayer $e)
     {
-        parent::__construct();
         $this->error = $e;
     }
 }

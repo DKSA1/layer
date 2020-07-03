@@ -19,7 +19,6 @@ abstract class ErrorController extends Controller
 
     public function __construct(ELayer $e)
     {
-        parent::__construct();
         $this->error = $e;
     }
 }

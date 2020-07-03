@@ -139,10 +139,21 @@ class File
         return $this->deleted;
     }
 
+    // TODO: send specific headers and point to ressource
     public function serve() {
         if($this->deleted) return null;
         // send specific headers for file download
         // build temp folder with temp file
+    }
+
+    // TODO : zip if folder or file
+    public function zip() {
+
+    }
+
+    // TODO : unzip if zip
+    public function unzip() {
+
     }
 
     /**

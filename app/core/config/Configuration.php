@@ -7,27 +7,27 @@
  */
 namespace layer\core\config;
 
-use Exception;
 use layer\core\error\EConfiguration;
 use layer\core\http\HttpHeaders;
 
 abstract class Configuration
 {
-    const ConfigurationFile = "configuration.json";
+    /**
+     * @var array
+     */
     private static $configuration;
     /**
      * @var bool
      */
     private static $loaded = false;
-    // TODO : replace by GLOBAL
     public static $environment;
 
     //Read the JSON config file
-    static function load()
+    static function load(string $config)
     {
-        if(!self::$loaded && file_exists(PATH."app\core\config\\".Configuration::ConfigurationFile))
+        if(!self::$loaded)
         {
-            if($data = file_get_contents(PATH."app\core\config\\".Configuration::ConfigurationFile))
+            if($data = file_get_contents($config))
             {
                 self::$configuration = json_decode($data,true);
                 self::validate();
@@ -39,9 +39,10 @@ abstract class Configuration
     private static function validate() {
         self::get('layouts');
         self::get('environment/current');
+        // TODO load full environment
         self::$environment = self::get("environment/current");
-        define("APP_ENV", self::$environment);
         self::get('environment/'.self::$environment);
+        define("APP_ENV", self::$environment);
         self::get('locations');
     }
 

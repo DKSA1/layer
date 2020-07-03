@@ -10,16 +10,16 @@
     }
   },
   "globals" : {
-        "app_name" : "My framework",
+        "app_name" : "LAYER",
         "app_version" : "0.0.2",
         "app_author"  : "Loris Rossi",
         "app_description" : "MVC PHP Framework",
         "app_keywords"  :  ["test","test2","test3"],
-        "contact" : "loris.rossi@outlook.com"
+        "contact" : "webadmin@mail.com"
   },
   "locations" : {
       "models" : "app/models",
-      "services": "app/services",
+      "controllers": "app/services",
       "shared": "app/services/#shared",
       "libs": "app/vendor",
       "public": "public",
@@ -28,24 +28,22 @@
   "environment" : {
       "current" : "dev",
       "dev": {
-        "host" : "http://localhost/Layer",
         "routeTemplate" : "",
         "apiRouteTemplate" : "api",
         "log": true,
         "logTemplate" : "[{request_datetime}][{environment}][{client_ip} {client_browser} {client_os}][{request_method} {request_resource}]:{message}",
-        "buildRoutesMap": false,
-        "buildSharedMap": false,
-        "buildSiteMap": false
+        "build": true,
+        "encryptedSession": true,
+        "encryptedKey": "123456789"
       },
       "prod": {
-        "host" : "https://www.mysite.be",
         "routeTemplate" : "",
         "apiRouteTemplate" : "api",
         "log": true,
         "logTemplate" : "[{request_datetime}][{environment}][{client_ip} {client_browser} {client_os}][{request_method} {request_resource}]:{message}",
-        "buildRoutesMap": false,
-        "buildSharedMap": false,
-        "buildSiteMap": false
+        "build": false,
+        "encryptedSession": false,
+        "encryptedKey": "123456789"
       }
   }
 }

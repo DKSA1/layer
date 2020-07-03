@@ -8,6 +8,7 @@
 
 namespace layer\core\http;
 
+use layer\core\error\EForward;
 use layer\core\utils\File;
 
 class Request
@@ -196,6 +197,12 @@ class Request
         }
     }
 
+    public function forward($internalUrl, $method, $httpCode = IHttpCodes::MovedTemporarily, $params = [])
+    {
+        $this->forwarded = true;
+        throw new EForward(trim($internalUrl,'/'), $method, $httpCode, $params);
+    }
+
     /**
      * @return string
      */
@@ -213,6 +220,7 @@ class Request
     }
 
     /**
+     * @param null $key
      * @return null|string|array
      */
     public function getCookie($key = null)
@@ -229,33 +237,7 @@ class Request
     }
 
     /**
-     * @param $key
-     * @param $value
-     * @param int $time
-     * @param string $path
-     * @return bool
-     */
-    public function putCookie($key,$value,$time = null,$path = null)
-    {
-        if($time == null) $time = time() + (86400*30);
-        if($path == null) $path = "/";
-
-        return setcookie($key, $value, $time, $path);
-    }
-
-    /**
-     * @param $key string
-     */
-    public function removeCookie($key)
-    {
-        if(isset($_COOKIE[$key]))
-        {
-            unset($_COOKIE[$key]);
-            setcookie($key,null,time() - (86400*30),"/");
-        }
-    }
-
-    /**
+     * @param null $key
      * @return null|string|array
      */
     public function getGet($key = null)
@@ -271,6 +253,7 @@ class Request
     }
 
     /**
+     * @param null $key
      * @return null|string|array
      */
     public function getPost($key = null)
@@ -286,6 +269,7 @@ class Request
     }
 
     /**
+     * @param null $key
      * @return null|string|array
      */
     public function getFiles($key = null)
@@ -349,8 +333,7 @@ class Request
     public function getHeader($name)
     {
         $name = strtoupper(str_replace('-', '_', $name));
-        if(array_key_exists($name, $_SERVER))
-        {
+        if(array_key_exists($name, $_SERVER)) {
             return $_SERVER[$name];
         }
         else if(array_key_exists("HTTP_".$name, $_SERVER))
@@ -361,6 +344,7 @@ class Request
     }
 
     /**
+     * @param null $key
      * @return null|string|array
      */
     public function getServer($key = null)
@@ -376,39 +360,7 @@ class Request
     }
 
     /**
-     * @return null|string|array
-     */
-    public function getSession($key = null)
-    {
-        if($key){
-            if(array_key_exists($key,$_SESSION))
-                return $_SESSION[$key];
-            else
-                return null;
-        }else{
-            return $_SESSION;
-        }
-    }
-
-    /**
-     * @param $key string
-     * @param $value
-     */
-    public function putSession($key,$value)
-    {
-        $_SESSION[$key] = $value;
-    }
-
-    /**
-     * @param $key string
-     */
-    public function removeSession($key){
-
-        if(array_key_exists($key,$_SESSION))
-            unset($_SESSION[$key]);
-    }
-
-    /**
+     * @param null $key
      * @return null|array|string
      */
     public function getRequestData($key = null)

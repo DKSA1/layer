@@ -42,18 +42,8 @@ class ViewManager
      * @var Script[]
      */
     private $scripts;
-    /**
-     * @var ViewManager
-     */
-    private static $instance;
 
-    public static function getInstance($views = null) : ViewManager
-    {
-        if(self::$instance == null && $views) self::$instance = new ViewManager($views);
-        return self::$instance;
-    }
-
-    private function __construct($views)
+    public function __construct($views)
     {
         $this->views = $views;
     }

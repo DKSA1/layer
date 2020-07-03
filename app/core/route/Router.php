@@ -81,9 +81,9 @@ class Router {
 
     private function load($file)
     {
-        if(file_exists(PATH."app\core\config\\".$file))
+        if(file_exists(APP_PATH."app\core\config\\".$file))
         {
-            if($data = file_get_contents(PATH."app\core\config\\".$file))
+            if($data = file_get_contents(APP_PATH."app\core\config\\".$file))
             {
                 return json_decode($data,true);
             }

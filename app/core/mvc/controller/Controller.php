@@ -11,15 +11,9 @@ use layer\core\manager\ViewManager;
 
 abstract class Controller extends CoreController {
 
-    /*
     /**
      * @var ViewManager
      */
-    // protected static $viewManager;
+    protected static $viewManager;
     public abstract function index();
-
-    protected final function views() {
-        return ViewManager::getInstance();
-    }
-
 }

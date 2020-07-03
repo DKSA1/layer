@@ -2,7 +2,7 @@
 
 use layer\core\http\IHttpMethods;
 
-require_once(PATH . 'app/lib/addendum/annotations.php');
+require_once(APP_PATH . 'app/lib/addendum/annotations.php');
 
 // TODO : divide class in different files
 

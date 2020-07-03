@@ -8,6 +8,8 @@
 
 namespace layer\core\http;
 
+use layer\core\error\ERedirect;
+
 class Response
 {
     /**
@@ -59,6 +61,33 @@ class Response
 
     private function __construct(){
         $this->setHeader(IHttpHeaders::X_Powered_By, 'Hello there');
+    }
+
+    /**
+     * @param $key
+     * @param $value
+     * @param int $time
+     * @param string $path
+     * @return bool
+     */
+    public function putCookie($key,$value,$time = null,$path = null)
+    {
+        if($time == null) $time = time() + (86400*30);
+        if($path == null) $path = "/";
+
+        return setcookie($key, $value, $time, $path);
+    }
+
+    /**
+     * @param $key string
+     */
+    public function removeCookie($key)
+    {
+        if(isset($_COOKIE[$key]))
+        {
+            unset($_COOKIE[$key]);
+            setcookie($key,null,time() - (86400*30),"/");
+        }
     }
 
     public function setHeader($key, $value)
@@ -130,6 +159,12 @@ class Response
             $this->responseTime = microtime(true);
             $this->responseSent = true;
         }
+    }
+
+    public function redirect($location, $httpCode = IHttpCodes::MovedTemporarily) {
+        $this->setHeader(IHttpHeaders::Location, $location);
+        $this->setResponseCode($httpCode);
+        throw new ERedirect($location, $httpCode);
     }
 
     /**

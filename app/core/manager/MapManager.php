@@ -16,28 +16,16 @@ use layer\core\utils\File;
 
 class MapManager
 {
-
-    private $routes;
-    private $map;
+    private $routes = [];
+    private $map = [];
     private $viewsDir;
     private $filtersDir;
     private $modulesDir;
 
-    /**
-     * @var MapManager
-     */
-    private static $instance;
-
-    public static function getInstance() : MapManager
-    {
-        if(self::$instance == null) self::$instance = new MapManager();
-        return self::$instance;
-    }
-
-    private function __construct()
+    public function __construct()
     {
         $shared = Configuration::get("locations/shared");
-        $modules = Configuration::get("locations/services");
+        $modules = Configuration::get("locations/controllers");
         $this->viewsDir = $shared . DIRECTORY_SEPARATOR . "view";
         $this->filtersDir = $shared . DIRECTORY_SEPARATOR . "filters";
         $this->modulesDir = $modules;
@@ -46,12 +34,12 @@ class MapManager
     // load existing files
     public function load() {
         // map
-        $file = File::getInstance(PATH."app\core\config\\map.json");
+        $file = File::getInstance(APP_PATH."layer/map.json");
         if(!$file) throw new EConfiguration("File map.json not found", IHttpCodes::InternalServerError);
         $file->load();
         $this->map = json_decode($file->getContent(), true);
         // routes
-        $file = File::getInstance(PATH."app\core\config\\routes.json");
+        $file = File::getInstance(APP_PATH."layer/routes.json");
         if(!$file) throw new EConfiguration("File routes.json not found", IHttpCodes::InternalServerError);
         $file->load();
         $this->routes = json_decode($file->getContent(), true);
@@ -71,7 +59,7 @@ class MapManager
             ]
         ];
         // annotations
-        require_once PATH."app/core/mvc/annotation/MVCAnnotations.php";
+        require_once APP_PATH."app/core/mvc/annotation/MVCAnnotations.php";
         // filters
         if(file_exists($this->filtersDir)) {
             $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($this->filtersDir));
@@ -320,8 +308,9 @@ class MapManager
 
     // save map in files
     private function save(array $routes, array $map) {
-        file_put_contents('app/core/config/map.json', json_encode($map, JSON_PRETTY_PRINT));
-        file_put_contents('app/core/config/routes.json', json_encode($routes, JSON_PRETTY_PRINT));
+        if(!file_exists(APP_PATH."layer")) mkdir(APP_PATH."layer");
+        file_put_contents(APP_PATH.'layer/map.json', json_encode($map, JSON_PRETTY_PRINT));
+        file_put_contents(APP_PATH.'layer/routes.json', json_encode($routes, JSON_PRETTY_PRINT));
     }
 
     public function getMap() {

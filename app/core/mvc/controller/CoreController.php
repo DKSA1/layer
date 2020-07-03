@@ -24,26 +24,15 @@ abstract class CoreController
      * @var Response $response
      */
     protected static $response;
-
+    /**
+     * @var FilterManager
+     */
+    protected static $filterManager;
+    /**
+     * @var
+     */
     protected static $data;
-
     protected static $shared;
-
-    public function __construct()
-    {
-        self::$request = Request::getInstance();
-        self::$response = Response::getInstance();
-    }
-
-    protected final function forward($internalUrl)
-    {
-        throw new EForward(trim($internalUrl,'/'));
-    }
-
-    protected final function redirect($location, $httpCode = IHttpCodes::MovedTemporarily)
-    {
-        throw new ERedirect($location, $httpCode);
-    }
 
     protected final function session(): SessionManager {
         return SessionManager::getInstance();
@@ -53,7 +42,4 @@ abstract class CoreController
         return CorsManager::getInstance(self::$request, self::$response);
     }
 
-    protected final function filters() : FilterManager {
-        return FilterManager::getInstance();
-    }
 }
