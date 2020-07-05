@@ -9,7 +9,8 @@
 namespace layer\core;
 
 use layer\core\config\Configuration;
-use layer\core\error\EForward;
+use layer\core\error\EForwardName;
+use layer\core\error\EForwardURL;
 use layer\core\error\ELayer;
 use layer\core\error\ERedirect;
 use layer\core\http\Request;
@@ -85,7 +86,7 @@ class App
             }
             $this->filterManager = new FilterManager($this->mapManager->getMap()['shared']['filters'], $this->mapManager->getMap()['shared']['globals']);
             $this->routeManager = new RouteManager($this->mapManager->getRoutes());
-            $this->controllerManager = new ControllerManager($this->mapManager->getMap()['controllers'], $this->filterManager);
+            $this->controllerManager = new ControllerManager($this->mapManager->getMap()['controllers'], $this->filterManager, $this->response);
             $this->setup();
         } catch(\Exception $e) {
             echo "An error occurred during the app initialisation process: {$e->getMessage()}\n";
@@ -134,30 +135,52 @@ class App
         return $this->viewManager;
     }
 
-    private function handleRequest($method, $url, $params = null) {
-        $route = $this->routeManager->match($method, $url, $params);
-        $viewManager = !$this->controllerManager->isApiController($route->getControllerNamespace()) ? $this->getViewManager() : null;
-        $this->controllerManager->run($route, $this->response, $viewManager);
+    // handle the request
+    private function handleRequest($method, $url, $params = null, $controller = null, $action = null) {
+        if($controller === null && $action === null) {
+            // url route
+            $route = $this->routeManager->match($method, $url, $params);
+            $controller = $route->getControllerNamespace();
+            $action = $route->getControllerAction();
+            $params = $route->getParams();
+        }
+        $viewManager = !$this->controllerManager->isApiController($controller) ? $this->getViewManager() : null;
+        $this->controllerManager->run($controller, $action, $params, $viewManager);
     }
 
-    private function run($method, $url, $params = null) {
-        try {
-            $this->handleRequest($method, $url, $params);
-        } catch(EForward $e) {
-            // forward
+    private function run($method, $url, $params = null, $controller = null, $action = null) {
+        try
+        {
+            $this->handleRequest($method, $url, $params, $controller, $action);
+        }
+        catch(EForwardURL $e)
+        {
+            // url forward
+            $this->response->setResponseCode($e->getCode());
             $this->run($e->getMethod(), $e->getInternalRoute(), $e->getParams());
-        } catch(ERedirect $e) {
+        }
+        catch(EForwardName $e)
+        {
+            // named forward
+            $this->response->setResponseCode($e->getCode());
+            $this->run(null, null, $e->getParams(), $e->getController(), $e->getAction());
+        }
+        catch(ERedirect $e)
+        {
             // redirect
-        } catch(ELayer $e) {
+        }
+        catch(ELayer $e)
+        {
             // error
             $this->response->setResponseCode($e->getCode());
             if($this->routeManager->isApiUrl($url)) {
                 // api
-                $route = trim(Configuration::get('environment/'.Configuration::$environment.'/apiRouteTemplate'), "/")."/".$e->getCode();
+                // trim(Configuration::get('environment/'.Configuration::$environment.'/apiRouteTemplate'), "/")
+                $route = "api/".$e->getCode();
             } else {
-                $route = trim(Configuration::get('environment/'.Configuration::$environment.'/routeTemplate'), "/")."/".$e->getCode();
+                // trim(Configuration::get('environment/'.Configuration::$environment.'/routeTemplate'), "/")
+                $route = $e->getCode();
             }
-            echo $url."  ".$route;
             $this->handleRequest('*', $route, ['e' => $e]);
         }
     }

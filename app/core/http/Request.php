@@ -8,7 +8,8 @@
 
 namespace layer\core\http;
 
-use layer\core\error\EForward;
+use layer\core\error\EForwardName;
+use layer\core\error\EForwardURL;
 use layer\core\utils\File;
 
 class Request
@@ -197,10 +198,15 @@ class Request
         }
     }
 
-    public function forward($internalUrl, $method, $httpCode = IHttpCodes::MovedTemporarily, $params = [])
+    public function forwardByURL($internalUrl, $method, $httpCode = IHttpCodes::MovedTemporarily, $params = [])
     {
         $this->forwarded = true;
-        throw new EForward(trim($internalUrl,'/'), $method, $httpCode, $params);
+        throw new EForwardURL(trim($internalUrl,'/'), $method, $httpCode, $params);
+    }
+
+    public function forwardByName($controller, $action, $httpCode = IHttpCodes::MovedTemporarily, $params = []) {
+        $this->forwarded = true;
+        throw new EForwardName($controller, $action, $httpCode, $params);
     }
 
     /**

@@ -1,12 +1,10 @@
 <?php
 
-
 namespace layer\core\mvc\controller;
-
 
 use layer\core\error\ELayer;
 
-class ApiErrorController extends ApiController
+abstract class ApiErrorController extends ApiController
 {
     /**
      * @var ELayer $error

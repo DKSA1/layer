@@ -5,8 +5,6 @@ namespace layer\core\manager;
 
 class Route
 {
-    // TODO add alias
-    private $alias;
     /**
      * @var string
      */

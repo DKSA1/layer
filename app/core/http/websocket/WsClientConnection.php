@@ -2,7 +2,7 @@
 
 namespace layer\core\http\websocket;
 
-use layer\core\utils\LogManager;
+use layer\core\utils\Logger;
 
 class WsClientConnection
 {
@@ -48,7 +48,7 @@ class WsClientConnection
         $this->bufferSize = $bufferSize;
         socket_set_nonblock($socket);
         socket_getpeername($socket, $this->ip, $this->port);
-        LogManager::write("Accepted client ".intval($this->socket)." connection from ip: ".$this->ip." with id: ".$this->id);
+        Logger::write("Accepted client ".intval($this->socket)." connection from ip: ".$this->ip." with id: ".$this->id);
     }
 
     public function open()
@@ -56,10 +56,10 @@ class WsClientConnection
         $data = @socket_read($this->socket, $this->bufferSize);
         $bytes = strlen($data);
         if($bytes === false)
-            LogManager::write("Error: ".socket_last_error($this->socket));
+            Logger::write("Error: ".socket_last_error($this->socket));
         if(intval($bytes) == 0)
             return null;
-        LogManager::write("Handshaking headers from client ".intval($this->socket));
+        Logger::write("Handshaking headers from client ".intval($this->socket));
         if($this->performHandshake($data))
         {
             $this->handshake = true;
@@ -99,7 +99,7 @@ class WsClientConnection
                 "\r\n\r\n";
 
             socket_write($this->socket, $upgrade);
-            LogManager::write('Successful handshake with client: '.intval($this->socket). " websocket v".$version." connection established\n");
+            Logger::write('Successful handshake with client: '.intval($this->socket). " websocket v".$version." connection established\n");
             return true;
         }
         else
@@ -197,7 +197,7 @@ class WsClientConnection
     public function close()
     {
         socket_close($this->socket);
-        LogManager::write("Connection with client ".intval($this->socket)." was closed");
+        Logger::write("Connection with client ".intval($this->socket)." was closed");
     }
 
     /**

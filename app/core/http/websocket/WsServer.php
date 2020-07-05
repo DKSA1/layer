@@ -2,7 +2,8 @@
 
 namespace layer\core\http\websocket;
 
-use layer\core\utils\LogManager;
+use layer\core\config\Configuration;
+use layer\core\utils\Logger;
 use layer\core\utils\StringValidator;
 
 class WsServer
@@ -75,7 +76,7 @@ class WsServer
         if(@socket_connect($socket, $address, $port))
         {
             socket_close($socket);
-            echo 'Server already running on that address and port';
+            Logger::write('Server already running on that address and port');
             return true;
         }
         return false;
@@ -102,15 +103,15 @@ class WsServer
             socket_set_option($this->master, SOL_SOCKET, SO_REUSEADDR, 1);
 
             if (!is_resource($this->master))
-                LogManager::write("socket_create() failed: ".socket_strerror(socket_last_error()));
+                Logger::write("socket_create() failed: ".socket_strerror(socket_last_error()));
 
             if (!socket_bind($this->master, $this->address, $this->port))
-                LogManager::write("socket_bind() failed: ".socket_strerror(socket_last_error()));
+                Logger::write("socket_bind() failed: ".socket_strerror(socket_last_error()));
 
             if(!socket_listen($this->master, 20))
-                LogManager::write("socket_listen() failed: ".socket_strerror(socket_last_error()));
+                Logger::write("socket_listen() failed: ".socket_strerror(socket_last_error()));
 
-            LogManager::write("[".date('Y-m-d H:i:s')."] Websocket server started on ".$this->address.":".$this->port);
+            Logger::write("Websocket server started on ".$this->address.":".$this->port);
 
             socket_set_nonblock($this->master);
 
@@ -141,7 +142,7 @@ class WsServer
         $changes = socket_select($changed, $write, $except, 0);
         if($changes != 0)
         {
-            LogManager::write("New client connection detected");
+            Logger::write("New client connection detected");
             $clientSocket = socket_accept($this->master);
             if($this->clients->size() >= $this->maxConnections)
             {
@@ -151,18 +152,18 @@ class WsServer
             }
             if($clientSocket<0)
             {
-                LogManager::write("socket_accept() failed");
+                Logger::write("socket_accept() failed");
             }
             else if($clientSocket !== false)
             {
-                LogManager::write("Connecting socket");
+                Logger::write("Connecting socket");
                 $c = new WsClientConnection($clientSocket, $this->master, $this->bufferSize);
                 $msg = "[".Date('Y-m-d h:m:s')."][".$c->getId()."][".$c->getIp()."]: New client joined - ".($this->clients->size()+1)."/".$this->maxConnections;
                 echo $msg."\n";
                 $this->clients->send($msg);
 
                 $this->clients->add($c);
-                LogManager::write("Total clients: ".$this->clients->size());
+                Logger::write("Total clients: ".$this->clients->size());
             }
         }
     }
@@ -211,6 +212,6 @@ class WsServer
     public function stop()
     {
         $this->running = false;
-        LogManager::write("[".date('Y-m-d H:i:s')."] Websocket server stopped");
+        Logger::write("[".date('Y-m-d H:i:s')."] Websocket server stopped");
     }
 }

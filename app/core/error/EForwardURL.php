@@ -4,7 +4,7 @@ namespace layer\core\error;
 
 use Throwable;
 
-class EForward extends ELayer
+class EForwardURL extends ELayer
 {
     /**
      * @var string

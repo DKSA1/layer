@@ -24,27 +24,37 @@ class ControllerManager
      * @var FilterManager
      */
     private $filterManager;
+    /**
+     * @var Response
+     */
+    private $response;
 
-    public function __construct(array $controllers, FilterManager $filterManager)
+    public function __construct(array $controllers, FilterManager $filterManager, Response $response)
     {
         $this->controllers = $controllers;
         $this->filterManager = $filterManager;
+        $this->response = $response;
     }
 
-    public function exists(string $controller) {
+    public function controllerExists(string $controller): bool {
         return array_key_exists($controller, $this->controllers);
     }
 
-    public function isApiController(string $controller) {
-        if($this->exists($controller)) {
-            return $this->controllers[$controller]['api'];
-        }
+    public function actionExists(string $controller, string $action): bool {
+        return $this->controllerExists($controller) && array_key_exists($action, $this->controllers[$controller]['actions']);
     }
 
-    public function run(Route $activeRoute, Response $response, ViewManager $viewManager = null) {
-        if(array_key_exists($activeRoute->getControllerNamespace(), $this->controllers) && array_key_exists($activeRoute->getControllerAction(), $this->controllers[$activeRoute->getControllerNamespace()]['actions'])) {
-            $metadata = $this->controllers[$activeRoute->getControllerNamespace()];
-            if(!$activeRoute->isError()) {
+    public function isApiController(string $controller): bool {
+        if($this->controllerExists($controller)) {
+            return $this->controllers[$controller]['api'];
+        }
+        return false;
+    }
+
+    public function run($controller, $action, $params, ViewManager $viewManager = null) {
+        if(array_key_exists($controller, $this->controllers) && array_key_exists($action, $this->controllers[$controller]['actions'])) {
+            $metadata = $this->controllers[$controller];
+            if(!$metadata["error"]) {
                 // remove all filters
                 $this->filterManager->clear();
                 // controllers filters
@@ -52,21 +62,21 @@ class ControllerManager
                     $this->filterManager->add($filter);
                 }
                 // actions filters
-                foreach ($metadata['actions'][$activeRoute->getControllerAction()]['filters'] as $filter) {
+                foreach ($metadata['actions'][$action]['filters'] as $filter) {
                     $this->filterManager->add($filter);
                 }
                 // apply filters in
                 $this->filterManager->run(true);
             }
-            if(!class_exists($activeRoute->getControllerNamespace())) {
-                require_once $this->controllers[$activeRoute->getControllerNamespace()]['path'];
+            if(!class_exists($controller)) {
+                require_once $this->controllers[$controller]['path'];
             }
-            $reflectionController = new \ReflectionClass($activeRoute->getControllerNamespace());
+            $reflectionController = new \ReflectionClass($controller);
             // setup viewManager
             if($viewManager) {
                 $viewManager->setBase($metadata['path']);
-                $viewManager->setLayoutName($metadata['actions'][$activeRoute->getControllerAction()]['layout']);
-                $viewManager->setContentView($metadata['actions'][$activeRoute->getControllerAction()]['view']);
+                $viewManager->setLayoutName($metadata['actions'][$action]['layout']);
+                $viewManager->setContentView($metadata['actions'][$action]['view']);
                 if ($reflectionController->hasProperty("viewManager")) {
                     $vm = $reflectionController->getProperty("viewManager");
                     $vm->setAccessible(true);
@@ -77,19 +87,19 @@ class ControllerManager
             // new controller
             // var_dump($this->checkParameters($activeRoute->getParams(), $metadata['parameters']));
             // $controllerParams = array_intersect_key($activeRoute->getParams(), $metadata['parameters']);
-            $controllerParams = $this->checkParameters($activeRoute->getParams(), $metadata['parameters']);
-            $this->instances[$activeRoute->getControllerNamespace()] = $reflectionController->newInstanceArgs($controllerParams);
+            $controllerParams = $this->checkParameters($params, $metadata['parameters']);
+            $this->instances[$controller] = $reflectionController->newInstanceArgs($controllerParams);
             // call action
-            if($reflectionController->hasMethod($activeRoute->getControllerAction())) {
-                $reflectionAction = $reflectionController->getMethod($activeRoute->getControllerAction());
+            if($reflectionController->hasMethod($action)) {
+                $reflectionAction = $reflectionController->getMethod($action);
                 if($reflectionAction->isPublic()) {
                     // $actionParams = array_intersect_key($activeRoute->getParams(), $metadata['actions'][$activeRoute->getControllerAction()]['parameters']);
-                    $actionParams = $this->checkParameters($activeRoute->getParams(), $metadata['actions'][$activeRoute->getControllerAction()]['parameters']);
+                    $actionParams = $this->checkParameters($params, $metadata['actions'][$action]['parameters']);
                     // run action
-                    $reflectionAction->invokeArgs($this->instances[$activeRoute->getControllerNamespace()], $actionParams);
+                    $reflectionAction->invokeArgs($this->instances[$controller], $actionParams);
                 }
             }
-            if(!$activeRoute->isError()) {
+            if(!$metadata["error"]) {
                 // apply filters out
                 $this->filterManager->run(false);
             }
@@ -101,11 +111,11 @@ class ControllerManager
             $p->setAccessible(false);
 
             if($viewManager) {
-                $response->setContentType(IHttpContentType::HTML);
-                $response->setMessageBody($viewManager->render(!is_scalar($data) ? Builder::object2Array($data) : []));
+                $this->response->setContentType(IHttpContentType::HTML);
+                $this->response->setMessageBody($viewManager->render(!is_scalar($data) ? Builder::object2Array($data) : []));
             } else {
-                $response->setContentType(IHttpContentType::JSON);
-                $response->setMessageBody($data !== null ? json_encode(Builder::object2Array($data)) : "");
+                $this->response->setContentType(IHttpContentType::JSON);
+                $this->response->setMessageBody($data !== null ? json_encode(Builder::object2Array($data)) : "");
             }
         }
     }

@@ -138,7 +138,8 @@ class MapManager
                          * @var \ApiErrorController $controllerAnnotation
                          */
                         $controllerAnnotation = $reflectionClass->getAnnotation('ApiErrorController');
-                        $routeTemplate = Configuration::get('environment/'.Configuration::$environment.'/apiRouteTemplate');
+                        //$routeTemplate = Configuration::get('environment/'.Configuration::$environment.'/apiRouteTemplate');
+                        $routeTemplate = "api";
                     }
                     else if($reflectionClass->isSubclassOf(ErrorController::class) && $reflectionClass->hasAnnotation('ErrorController'))
                     {
@@ -150,7 +151,8 @@ class MapManager
                          * @var \ErrorController $controllerAnnotation
                          */
                         $controllerAnnotation = $reflectionClass->getAnnotation('ErrorController');
-                        $routeTemplate = Configuration::get('environment/'.Configuration::$environment.'/routeTemplate');
+                        //$routeTemplate = Configuration::get('environment/'.Configuration::$environment.'/routeTemplate');
+                        $routeTemplate = "";
                         $layoutName = $controllerAnnotation->layoutName;
                     }
                     else if($reflectionClass->isSubclassOf(ApiController::class) && $reflectionClass->hasAnnotation('ApiController'))
@@ -182,6 +184,7 @@ class MapManager
                         "path" => $fileNames[basename($namespace)],
                         "filters" => $filters,
                         "api" => $isApi,
+                        "error" => $isError,
                         "parameters" => $reflectionClass->hasMethod('__construct') ? $this->getParameters($reflectionClass->getConstructor()) : [],
                         "actions" => []
                     ];

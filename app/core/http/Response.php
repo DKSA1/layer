@@ -60,7 +60,7 @@ class Response
     }
 
     private function __construct(){
-        $this->setHeader(IHttpHeaders::X_Powered_By, 'Hello there');
+        $this->putHeader(IHttpHeaders::X_Powered_By, 'Hello there');
     }
 
     /**
@@ -90,7 +90,7 @@ class Response
         }
     }
 
-    public function setHeader($key, $value)
+    public function putHeader($key, $value)
     {
         $this->headers[$key] = $value;
     }
@@ -135,7 +135,7 @@ class Response
         {
             HttpHeaders::responseHeader($this->getResponseCode());
             if($this->contentType)
-                $this->setHeader(IHttpHeaders::Content_Type, $this->contentType);
+                $this->putHeader(IHttpHeaders::Content_Type, $this->contentType);
             foreach ($this->getHeaders() as $h => $v)
             {
                 header($h.": ".$v, true, $this->getResponseCode());
@@ -162,7 +162,7 @@ class Response
     }
 
     public function redirect($location, $httpCode = IHttpCodes::MovedTemporarily) {
-        $this->setHeader(IHttpHeaders::Location, $location);
+        $this->putHeader(IHttpHeaders::Location, $location);
         $this->setResponseCode($httpCode);
         throw new ERedirect($location, $httpCode);
     }
@@ -186,8 +186,8 @@ class Response
         if($this->compression)
         {
             $content = gzencode($data, 1);
-            $this->setHeader(IHttpHeaders::Content_Encoding, 'gzip');
-            $this->setHeader(IHttpHeaders::Content_Length, strlen($content));
+            $this->putHeader(IHttpHeaders::Content_Encoding, 'gzip');
+            $this->putHeader(IHttpHeaders::Content_Length, strlen($content));
             return $content;
         }
         return $data;

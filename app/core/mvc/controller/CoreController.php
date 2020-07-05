@@ -2,7 +2,7 @@
 
 namespace layer\core\mvc\controller;
 
-use layer\core\error\EForward;
+use layer\core\error\EForwardURL;
 use layer\core\error\ERedirect;
 use layer\core\http\HttpHeaders;
 use layer\core\http\IHttpCodes;
