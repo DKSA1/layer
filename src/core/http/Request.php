@@ -10,6 +10,8 @@ namespace rloris\layer\core\http;
 
 use rloris\layer\core\error\EForwardName;
 use rloris\layer\core\error\EForwardURL;
+use rloris\layer\core\manager\RouteManager;
+use rloris\layer\core\route\Route;
 use rloris\layer\utils\File;
 
 class Request
@@ -79,10 +81,6 @@ class Request
      */
     private $app;
     /**
-     * @var string[] $routeParameters
-     */
-    private $routeParameters = [];
-    /**
      * @var bool $forwarded
      */
     private $forwarded = false;
@@ -99,12 +97,13 @@ class Request
      */
     private $contentType;
     /**
-     * @var Request
+     * @var RouteManager
      */
-    private static $instance;
+    private $routeManager;
 
-    public function __construct()
+    public function __construct(RouteManager $routeManager)
     {
+        $this->routeManager = $routeManager;
         $this->app = trim(dirname($_SERVER['SCRIPT_NAME']),'/');
         $this->host = $_SERVER['HTTP_HOST'];
         $this->baseUrl = $_REQUEST['url'];
@@ -484,14 +483,6 @@ class Request
     }
 
     /**
-     * @return string[]
-     */
-    public function getRouteParameters(): array
-    {
-        return $this->routeParameters;
-    }
-
-    /**
      * @return bool
      */
     public function isForwarded(): bool
@@ -516,6 +507,11 @@ class Request
     public function getContentType()
     {
         return $this->contentType;
+    }
+
+    public function getActiveRoute()
+    {
+        return $this->routeManager->getActiveRoute();
     }
 
 }

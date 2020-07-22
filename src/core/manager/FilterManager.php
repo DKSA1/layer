@@ -2,7 +2,7 @@
 
 namespace rloris\layer\core\manager;
 
-use rloris\layer\core\mvc\filter\Filter;
+use rloris\layer\core\mvc\filter\BaseFilter;
 
 class FilterManager
 {
@@ -15,7 +15,7 @@ class FilterManager
      */
     private $globals;
     /**
-     * @var Filter[]
+     * @var BaseFilter[]
      */
     private $instances;
     /**

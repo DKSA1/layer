@@ -9,6 +9,7 @@
 namespace rloris\layer\core\http;
 
 use rloris\layer\core\error\ERedirect;
+use rloris\layer\utils\File;
 
 class Response
 {
@@ -48,10 +49,6 @@ class Response
      * @var bool
      */
     private $responseSent = false;
-    /**
-     * @var Request
-     */
-    private static $instance;
     /**
      * @var Request
      */
@@ -134,7 +131,7 @@ class Response
         if(!headers_sent())
         {
             HttpHeaders::responseHeader($this->getResponseCode());
-            if($this->contentType)
+            if($this->contentType && !isset($this->getHeaders()[IHttpHeaders::Content_Type]))
                 $this->putHeader(IHttpHeaders::Content_Type, $this->contentType);
             foreach ($this->getHeaders() as $h => $v)
             {
@@ -159,6 +156,28 @@ class Response
             $this->responseTime = microtime(true);
             $this->responseSent = true;
         }
+    }
+
+    public function sendFile(File $file): bool
+    {
+        $filename = $file->getDownloadName() ? $file->getDownloadName() : $file->getFullname();
+
+        if(file_exists($file->getAbsolutePath()))
+        {
+            // send specific headers for file download
+            $this->putHeader(IHttpHeaders::Content_Type, $file->getMimeType());
+            $this->putHeader(IHttpHeaders::Pragma, 'public');
+            $this->putHeader(IHttpHeaders::Expires, '0');
+            $this->putHeader(IHttpHeaders::Cache_Control, 'must-revalidate, post-check=0, pre-check=0');
+            $this->putHeader(IHttpHeaders::Content_Disposition, 'attachment; filename="'.$filename.'"');
+            $this->putHeader(IHttpHeaders::Content_Length, $file->getSize());
+            $this->sendHeaders();
+            flush();
+            @readfile($file->getAbsolutePath());
+            return true;
+        }
+        else
+            return false;
     }
 
     public function redirect($location, $httpCode = IHttpCodes::MovedTemporarily)

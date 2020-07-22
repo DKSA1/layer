@@ -10,7 +10,7 @@ namespace rloris\layer\core\mvc\controller;
 
 use rloris\layer\core\error\ELayer;
 
-abstract class ErrorController extends Controller
+abstract class ErrorBaseController extends BaseController
 {
     /**
      * @var ELayer $error

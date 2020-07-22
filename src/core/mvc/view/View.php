@@ -36,7 +36,7 @@ class View implements IView
 
         ob_start();
 
-        require_once $this->viewTemplate;
+        include $this->viewTemplate;
 
         return ob_get_clean();
     }

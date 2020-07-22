@@ -71,8 +71,6 @@ class App
         define("APP_ROOT", rtrim($_SERVER["PHP_SELF"],"index.php"));
         define("APP_PATH", rtrim($_SERVER['SCRIPT_FILENAME'],"index.php"));
         Configuration::load($config);
-        $this->request = new Request();
-        $this->response = new Response($this->request);
         $this->init();
     }
 
@@ -87,6 +85,9 @@ class App
             }
             $this->filterManager = new FilterManager($this->mapManager->getMap()['shared']['filters'], $this->mapManager->getMap()['shared']['globals']);
             $this->routeManager = new RouteManager($this->mapManager->getRoutes());
+            // init request and response
+            $this->request = new Request($this->routeManager);
+            $this->response = new Response($this->request);
             $this->controllerManager = new ControllerManager($this->mapManager->getMap()['controllers'], $this->filterManager, $this->response);
             $this->setup();
         } catch(\Exception $e) {
@@ -182,7 +183,11 @@ class App
             } else {
                 $route = $e->getCode();
             }
-            $this->handleRequest('*', $route, ['e' => $e]);
+            try {
+                $this->handleRequest('*', $route, ['e' => $e]);
+            } catch(ELayer $exception) {
+                $this->handleRequest('*', $this->routeManager->isApiUrl($url) ? 'api' : '',  ['e' => $e]);
+            }
         }
     }
 

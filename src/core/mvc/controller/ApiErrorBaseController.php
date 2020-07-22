@@ -4,7 +4,7 @@ namespace rloris\layer\core\mvc\controller;
 
 use rloris\layer\core\error\ELayer;
 
-abstract class ApiErrorController extends ApiController
+abstract class ApiErrorBaseController extends ApiBaseController
 {
     /**
      * @var ELayer $error

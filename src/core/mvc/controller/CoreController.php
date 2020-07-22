@@ -7,6 +7,7 @@ use rloris\layer\core\http\Response;
 use rloris\layer\core\manager\CorsManager;
 use rloris\layer\core\manager\FilterManager;
 use rloris\layer\core\manager\SessionManager;
+use rloris\layer\core\route\Route;
 
 abstract class CoreController
 {

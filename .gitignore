@@ -7,3 +7,7 @@ layer/
 public/
 app/core/persistence/
 /vendor/
+
+configuration.json
+
+index.php

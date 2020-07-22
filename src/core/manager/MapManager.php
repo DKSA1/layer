@@ -5,11 +5,11 @@ namespace rloris\layer\core\manager;
 use rloris\layer\core\config\Configuration;
 use rloris\layer\core\error\EConfiguration;
 use rloris\layer\core\http\IHttpCodes;
-use rloris\layer\core\mvc\controller\ApiController;
-use rloris\layer\core\mvc\controller\ApiErrorController;
-use rloris\layer\core\mvc\controller\Controller;
-use rloris\layer\core\mvc\controller\ErrorController;
-use rloris\layer\core\mvc\filter\Filter;
+use rloris\layer\core\mvc\controller\ApiBaseController;
+use rloris\layer\core\mvc\controller\ApiErrorBaseController;
+use rloris\layer\core\mvc\controller\BaseController;
+use rloris\layer\core\mvc\controller\ErrorBaseController;
+use rloris\layer\core\mvc\filter\BaseFilter;
 use rloris\layer\utils\DocCommentParser;
 use rloris\layer\utils\DocTypeInfo;
 use rloris\layer\utils\File;
@@ -61,7 +61,8 @@ class MapManager
             ]
         ];
         // annotations
-        require_once "src/core/mvc/annotation/MVCAnnotations.php";
+        // require_once "src/core/mvc/annotation/RouteAnnotations.php";
+        require_once dirname(__DIR__, 1)."/mvc/annotation/RouteAnnotations.php";
         // filters
         if(file_exists($this->filtersDir)) {
             $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($this->filtersDir));
@@ -74,19 +75,25 @@ class MapManager
             $namespaces = preg_grep("/(" . implode("|", array_keys($fileNames)) . ")/", get_declared_classes());
             foreach ($namespaces as $namespace) {
                 $reflectionClass = new \ReflectionAnnotatedClass($namespace);
-                if ($reflectionClass->isSubclassOf(Filter::class)) {
+                if ($reflectionClass->isSubclassOf(BaseFilter::class))
+                {
                     $annotation = $reflectionClass->hasAnnotation('Filter') ? $reflectionClass->getAnnotation("Filter") : ($reflectionClass->hasAnnotation('GlobalFilter') ? $reflectionClass->getAnnotation('GlobalFilter') : null);
-                    if ($annotation && $annotation->mapped) {
-                            if ($annotation->verifyName()) {
-                                $filterName = strtolower($annotation->name);
-                            } else {
+                    if ($annotation && $annotation->mapped)
+                    {
+                            if (($n = $annotation->validateName()))
+                            {
+                                $filterName = strtolower($n);
+                            }
+                            else
+                            {
                                 $filterName = strtolower(str_ireplace("Filter", "", basename($namespace)));
                             }
                             $this->map['shared']['filters'][$filterName] = [
                                 "namespace" => $namespace,
                                 "path" => realpath($fileNames[basename($namespace)])
                             ];
-                            if($annotation instanceof \MyGlobalFilter) {
+                            if($annotation instanceof \GlobalFilter)
+                            {
                                 array_push($this->map['shared']['globals'], $filterName);
                             }
                     }
@@ -94,26 +101,31 @@ class MapManager
             }
         }
         // views
-        if(file_exists($this->viewsDir)) {
+        if(file_exists($this->viewsDir))
+        {
             $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($this->viewsDir));
             $viewFiles = new \RegexIterator($files, "/\.(php|html)$/");
-            foreach ($viewFiles as $view) {
+            foreach ($viewFiles as $view)
+            {
                 $this->map["shared"]["views"][preg_replace("/\.(php|html)$/", "", str_replace("\\", "/", trim(str_replace($this->viewsDir, "", $view), DIRECTORY_SEPARATOR)))] = realpath(trim($view->getPathName()));
             }
         }
         // controllers
-        if(file_exists($this->controllersDir)) {
+        if(file_exists($this->controllersDir))
+        {
             $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($this->controllersDir));
             $modFiles = new \RegexIterator($files, '/\.*controller.php$/i');
             $fileNames = [];
-            foreach ($modFiles as $mod) {
+            foreach ($modFiles as $mod)
+            {
                 require_once $mod;
                 $fileNames[rtrim(basename($mod), '.php')] = realpath(trim($mod->getPathName()));
             }
             $namespaces = preg_grep("/(" . implode("|", array_keys($fileNames)) . ")/", get_declared_classes());
-            foreach ($namespaces as $namespace) {
+            foreach ($namespaces as $namespace)
+            {
                 $reflectionClass = new \ReflectionAnnotatedClass($namespace);
-                if (($reflectionClass->isSubclassOf(ApiController::class) || $reflectionClass->isSubclassOf(Controller::class)) && $reflectionClass->isInstantiable())
+                if (($reflectionClass->isSubclassOf(ApiBaseController::class) || $reflectionClass->isSubclassOf(BaseController::class)) && $reflectionClass->isInstantiable())
                 {
                     /**
                      * @var \Controller|\ApiController|\ErrorController|\ApiErrorController|\DefaultController $controllerAnnotation
@@ -130,7 +142,7 @@ class MapManager
                     $layoutName = null;
                     $viewName = null;
                     $filters = [];
-                    if($reflectionClass->isSubclassOf(ApiErrorController::class) && $reflectionClass->hasAnnotation('ApiErrorController'))
+                    if($reflectionClass->isSubclassOf(ApiErrorBaseController::class) && $reflectionClass->hasAnnotation('ApiErrorController'))
                     {
                         // api error
                         $isApi = true;
@@ -143,7 +155,7 @@ class MapManager
                         //$routeTemplate = Configuration::get('environment/'.Configuration::$environment.'/apiRouteTemplate');
                         $routeTemplate = "api";
                     }
-                    else if($reflectionClass->isSubclassOf(ErrorController::class) && $reflectionClass->hasAnnotation('ErrorController'))
+                    else if($reflectionClass->isSubclassOf(ErrorBaseController::class) && $reflectionClass->hasAnnotation('ErrorController'))
                     {
                         // error
                         $isApi = false;
@@ -157,7 +169,7 @@ class MapManager
                         $routeTemplate = "";
                         $layoutName = $controllerAnnotation->layoutName;
                     }
-                    else if($reflectionClass->isSubclassOf(ApiController::class) && $reflectionClass->hasAnnotation('ApiController'))
+                    else if($reflectionClass->isSubclassOf(ApiBaseController::class) && $reflectionClass->hasAnnotation('ApiController'))
                     {
                         $isApi = true;
                         $actionAnnotationClass = 'ApiAction';
@@ -166,10 +178,11 @@ class MapManager
                          */
                         $controllerAnnotation = $reflectionClass->getAnnotation('ApiController');
                         $defaultActionName = $reflectionClass->hasMethod($controllerAnnotation->defaultAction) ? $controllerAnnotation->defaultAction : null;
-                        $routeTemplate = Configuration::environment('apiRouteTemplate')."/".($controllerAnnotation->verifyRouteTemplate() ? $controllerAnnotation->verifyRouteTemplate() : str_ireplace("controller", "", basename($reflectionClass->name)));
+                        $rt = $controllerAnnotation->validateRouteTemplate();
+                        $routeTemplate = Configuration::environment('apiRouteTemplate')."/".( $rt ? $rt : str_ireplace("controller", "", basename($reflectionClass->name)));
                         $filters = $this->checkFilter($controllerAnnotation->getFilters(), $this->map);
                     }
-                    else if($reflectionClass->isSubclassOf(Controller::class) && ( $reflectionClass->hasAnnotation('Controller') || $reflectionClass->hasAnnotation('DefaultController')))
+                    else if($reflectionClass->isSubclassOf(BaseController::class) && ( $reflectionClass->hasAnnotation('Controller') || $reflectionClass->hasAnnotation('DefaultController')))
                     {
                         $actionAnnotationClass = 'Action';
                         /**
@@ -177,7 +190,8 @@ class MapManager
                          */
                         $controllerAnnotation = $reflectionClass->hasAnnotation('Controller') ? $reflectionClass->getAnnotation('Controller') : $reflectionClass->getAnnotation('DefaultController');
                         $defaultActionName = $reflectionClass->hasMethod($controllerAnnotation->defaultAction) ? $controllerAnnotation->defaultAction : null;
-                        $routeTemplate = Configuration::environment('routeTemplate')."/".($controllerAnnotation->verifyRouteTemplate() ? $controllerAnnotation->verifyRouteTemplate() : str_ireplace("controller", "", basename($reflectionClass->name)));
+                        $rt = $controllerAnnotation->validateRouteTemplate();
+                        $routeTemplate = Configuration::environment('routeTemplate')."/".( $rt ? $rt : str_ireplace("controller", "", basename($reflectionClass->name)));
                         $layoutName = $controllerAnnotation->layoutName;
                         $filters = $this->checkFilter($controllerAnnotation->getFilters(), $this->map);
                         if($controllerAnnotation instanceof \DefaultController) $defaultController = true;
@@ -207,7 +221,7 @@ class MapManager
                                         /**
                                          * @var \ApiErrorAction $actionAnnotation
                                          */
-                                        if(count($actionAnnotation->errorCodes) === 0) continue;
+                                        // if(count($actionAnnotation->errorCodes) === 0) continue;
                                     } else {
                                         /**
                                          * @var \ErrorAction $actionAnnotation
@@ -215,7 +229,10 @@ class MapManager
                                         $viewName = $this->checkView($m->name, $actionAnnotation->viewName, dirname($fileNames[basename($namespace)]). DIRECTORY_SEPARATOR . "views" . DIRECTORY_SEPARATOR);
                                     }
                                     array_push($methods, '*');
-                                    array_push($routeTemplates, ...$actionAnnotation->errorCodes);
+                                    if(count($actionAnnotation->errorCodes) !== 0)
+                                        array_push($routeTemplates, ...$actionAnnotation->errorCodes);
+                                    else
+                                        array_push($routeTemplates, '/');
                                 } else {
                                     if($isApi) {
                                         /**
@@ -228,8 +245,9 @@ class MapManager
                                         $viewName = $this->checkView($m->name, $actionAnnotation->viewName, dirname($fileNames[basename($namespace)]). DIRECTORY_SEPARATOR . "views" . DIRECTORY_SEPARATOR);
                                     }
                                     $actionFilters = $this->checkFilter($actionAnnotation->getFilters(), $this->map);
-                                    array_push($methods, ...$actionAnnotation->verifyMethods());
-                                    array_push($routeTemplates, $actionAnnotation->verifyRouteTemplate() ? $actionAnnotation->verifyRouteTemplate() : $m->name);
+                                    array_push($methods, ...$actionAnnotation->validateMethods());
+                                    $rt = $actionAnnotation->validateRouteTemplate();
+                                    array_push($routeTemplates, $rt ? $rt : $m->name);
                                 }
                                 $this->map['controllers'][$namespace]['actions'][$m->name] = [
                                     "filters" => array_diff($actionFilters, $filters),

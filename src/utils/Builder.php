@@ -9,22 +9,26 @@ class Builder
      * @param $obj
      * @param bool $copyOnlyPublicProperties
      * @param bool $copyPropertiesWithGetters
+     * @param Callable|null $keyTransform
      * @return array
      * @throws \ReflectionException
      */
-    public static function object2Array($obj, $copyOnlyPublicProperties = true, $copyPropertiesWithGetters = true): array {
+    public static function object2Array($obj, $copyOnlyPublicProperties = true, $copyPropertiesWithGetters = true, $keyTransform = null): array {
         if(is_array($obj)) {
             $arr = [];
             foreach ($obj as $k => $v) {
-                $arr[$k] = is_object($v) || is_array($v) ? self::object2Array($v, $copyOnlyPublicProperties, $copyPropertiesWithGetters) : $v;
+                $arr[$k] = is_object($v) || is_array($v) ? self::object2Array($v, $copyOnlyPublicProperties, $copyPropertiesWithGetters, $keyTransform) : $v;
             }
             return $arr;
         }
         $res = [];
         $reflectionClass = new \ReflectionClass(get_class($obj));
         foreach ($reflectionClass->getProperties() as $p) {
+            $keyName = $p->name;
+            if($keyTransform && is_callable($keyTransform)) $keyName = call_user_func_array($keyTransform, [$p->name, $obj]);
+            if($keyName === null) $keyName = $p->name;
             if($p->isPublic()) {
-                $res[$p->name] = is_object($p->getValue($obj)) ? self::object2Array($p->getValue($obj), $copyOnlyPublicProperties, $copyPropertiesWithGetters) : $p->getValue($obj);
+                $res[$keyName] = is_object($p->getValue($obj)) ? self::object2Array($p->getValue($obj), $copyOnlyPublicProperties, $copyPropertiesWithGetters, $keyTransform) : $p->getValue($obj);
             } else {
                 if($copyOnlyPublicProperties === true && $copyPropertiesWithGetters === false)
                     continue;
@@ -34,7 +38,7 @@ class Builder
                         continue;
                 }
                 $p->setAccessible(true);
-                $res[$p->name] = is_object($p->getValue($obj)) ? self::object2Array($p->getValue($obj), $copyOnlyPublicProperties, $copyPropertiesWithGetters) : $p->getValue($obj);
+                $res[$keyName] = is_object($p->getValue($obj)) ? self::object2Array($p->getValue($obj), $copyOnlyPublicProperties, $copyPropertiesWithGetters, $keyTransform) : $p->getValue($obj);
                 $p->setAccessible(false);
             }
         }

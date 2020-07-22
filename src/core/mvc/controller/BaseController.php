@@ -9,7 +9,7 @@ namespace rloris\layer\core\mvc\controller;
 
 use rloris\layer\core\manager\ViewManager;
 
-abstract class Controller extends CoreController {
+abstract class BaseController extends CoreController {
 
     /**
      * @var ViewManager

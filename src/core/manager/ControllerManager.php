@@ -8,6 +8,7 @@ use rloris\layer\core\http\IHttpContentType;
 use rloris\layer\core\http\Response;
 use rloris\layer\core\mvc\controller\CoreController;
 use rloris\layer\utils\Builder;
+use rloris\layer\utils\File;
 
 class ControllerManager
 {
@@ -50,10 +51,11 @@ class ControllerManager
         return false;
     }
 
-    public function run($controller, $action, $params, ViewManager $viewManager = null) {
+    public function run(string $controller, string $action, $params, ViewManager $viewManager = null) {
         if(array_key_exists($controller, $this->controllers) && array_key_exists($action, $this->controllers[$controller]['actions'])) {
             $metadata = $this->controllers[$controller];
-            if(!$metadata["error"]) {
+            if(!$metadata["error"])
+            {
                 // remove all filters
                 $this->filterManager->clear();
                 // controllers filters
@@ -67,12 +69,14 @@ class ControllerManager
                 // apply filters in
                 $this->filterManager->run(true);
             }
-            if(!class_exists($controller)) {
+            if(!class_exists($controller))
+            {
                 require_once $this->controllers[$controller]['path'];
             }
             $reflectionController = new \ReflectionClass($controller);
             // setup viewManager
-            if($viewManager) {
+            if($viewManager)
+            {
                 $viewManager->setBase($metadata['path']);
                 $viewManager->setLayoutName($metadata['actions'][$action]['layout']);
                 $viewManager->setContentView($metadata['actions'][$action]['view']);
@@ -84,21 +88,21 @@ class ControllerManager
                 }
             }
             // new controller
-            // var_dump($this->checkParameters($activeRoute->getParams(), $metadata['parameters']));
-            // $controllerParams = array_intersect_key($activeRoute->getParams(), $metadata['parameters']);
             $controllerParams = $this->checkParameters($params, $metadata['parameters']);
             $this->instances[$controller] = $reflectionController->newInstanceArgs($controllerParams);
             // call action
-            if($reflectionController->hasMethod($action)) {
+            if($reflectionController->hasMethod($action))
+            {
                 $reflectionAction = $reflectionController->getMethod($action);
-                if($reflectionAction->isPublic()) {
-                    // $actionParams = array_intersect_key($activeRoute->getParams(), $metadata['actions'][$activeRoute->getControllerAction()]['parameters']);
+                if($reflectionAction->isPublic())
+                {
                     $actionParams = $this->checkParameters($params, $metadata['actions'][$action]['parameters']);
                     // run action
                     $reflectionAction->invokeArgs($this->instances[$controller], $actionParams);
                 }
             }
-            if(!$metadata["error"]) {
+            if(!$metadata["error"])
+            {
                 // apply filters out
                 $this->filterManager->run(false);
             }
@@ -109,12 +113,22 @@ class ControllerManager
             $data = $p->getValue(null);
             $p->setAccessible(false);
 
-            if($viewManager) {
-                $this->response->setContentType(IHttpContentType::HTML);
-                $this->response->setMessageBody($viewManager->render(!is_scalar($data) ? Builder::object2Array($data) : []));
-            } else {
-                $this->response->setContentType(IHttpContentType::JSON);
-                $this->response->setMessageBody($data !== null ? json_encode(Builder::object2Array($data)) : "");
+            if($data instanceof File)
+            {
+                $this->response->sendFile($data);
+            }
+            else
+            {
+                if($viewManager)
+                {
+                    $this->response->setContentType(IHttpContentType::HTML);
+                    $this->response->setMessageBody($viewManager->render(!is_scalar($data) ? Builder::object2Array($data) : []));
+                }
+                else
+                {
+                    $this->response->setContentType(IHttpContentType::JSON);
+                    $this->response->setMessageBody($data !== null ? json_encode(Builder::object2Array($data)) : "");
+                }
             }
         }
     }

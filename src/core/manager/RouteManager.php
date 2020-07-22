@@ -16,6 +16,10 @@ class RouteManager
      * @var array
      */
     private $routes;
+    /**
+     * @var Route
+     */
+    private $activeRoute;
 
     public function __construct($routes){
         $this->routes = $routes;
@@ -50,7 +54,8 @@ class RouteManager
                         $params = $matches;
                     // array_intersect_key($matches, array_fill_keys(array_filter(array_keys($matches), 'is_string'),null));
                     $controller = explode('@',$this->routes[$method][$r]);
-                    return new Route($controller[0], $controller[1], $method, $url, $params);
+                    $this->activeRoute = new Route($controller[0], $controller[1], $method, $url, $params);
+                    return $this->activeRoute;
                 }
             }
         } else {
@@ -79,5 +84,13 @@ class RouteManager
            return true;
         }
         return false;
+    }
+
+    /**
+     * @return Route
+     */
+    public function getActiveRoute(): Route
+    {
+        return $this->activeRoute;
     }
 }

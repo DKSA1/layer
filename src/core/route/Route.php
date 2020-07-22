@@ -2,7 +2,6 @@
 
 namespace rloris\layer\core\route;
 
-
 class Route
 {
     /**
@@ -28,10 +27,6 @@ class Route
     /**
      * @var bool
      */
-    private $isApi;
-    /**
-     * @var bool
-     */
     private $isError = false;
 
     public function __construct(string $namespace, string $action, string $method, string $routePath, array $params = [])
@@ -43,7 +38,6 @@ class Route
             $this->isError = true;
         $this->routePath = $routePath;
         $this->params = $params;
-        // $this->isApi = $isApi;
     }
 
     /**
@@ -89,17 +83,13 @@ class Route
     /**
      * @return string[]
      */
-    public function getParams(): array
+    public function getParams($key = NULL)
     {
-        return $this->params;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isApi(): bool
-    {
-        return $this->isApi;
+        if($key === null)
+            return $this->params;
+        else if(isset($this->params[$key]))
+            return $this->params[$key];
+        return null;
     }
 
 }

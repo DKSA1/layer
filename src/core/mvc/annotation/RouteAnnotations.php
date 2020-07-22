@@ -2,11 +2,12 @@
 
 use rloris\layer\core\http\IHttpMethods;
 
-require_once(APP_PATH . 'src/lib/addendum/annotations.php');
+// require_once(APP_PATH . 'src/lib/addendum/annotations.php');
+require_once(dirname(__DIR__, 3)."/lib/addendum/annotations.php");
 
 // TODO : divide class in different files
 
-abstract class MVCAnnotation extends Annotation
+abstract class RouteAnnotation extends Annotation
 {
     private function grepRouteTemplateParameters() {
         $params = [];
@@ -14,7 +15,7 @@ abstract class MVCAnnotation extends Annotation
         return count($params) >= 1 ? array_slice($params, 1)[0] : [];
     }
 
-    public function verifyRouteTemplate() {
+    public function validateRouteTemplate() {
         if(preg_match('/^[a-zA-Z0-9\/{}?#]+$/', $this->routeTemplate)) {
             $res = $this->routeTemplate;
             foreach ($this->grepRouteTemplateParameters() as $param) {
@@ -46,9 +47,9 @@ class Filter extends Annotation
      */
     public $mapped = true;
 
-    public function verifyName() {
-        if(preg_match('/^[a-zA-Z0-9]+$/',$this->name))
-                return $this->name;
+    public function validateName() {
+        if(preg_match('/^[a-zA-Z0-9]+$/',trim($this->name)))
+                return trim($this->name);
         else
                 return null;
     }
@@ -61,7 +62,7 @@ class GlobalFilter extends Filter
 }
 
 /** @Target("class") */
-class Controller extends MVCAnnotation
+class Controller extends RouteAnnotation
 {
     /**
      * @var string
@@ -86,7 +87,7 @@ class Controller extends MVCAnnotation
 }
 
 /** @Target("method") */
-class Action extends MVCAnnotation
+class Action extends RouteAnnotation
 {
     /**
      * @var string
@@ -121,7 +122,7 @@ class Action extends MVCAnnotation
        return in_array(strtolower($method),$this->methods);
     }
 
-    public function verifyMethods()
+    public function validateMethods()
     {
         $this->methods = array_map('strtolower', $this->methods);
         sort($this->methods);
@@ -166,7 +167,7 @@ class DefaultController extends Controller {
 }
 
 /** @Target("class") */
-class ApiController extends MVCAnnotation
+class ApiController extends RouteAnnotation
 {
     /**
      * @var string
@@ -191,7 +192,7 @@ class ApiController extends MVCAnnotation
 }
 
 /** @Target("method") */
-class ApiAction extends MVCAnnotation
+class ApiAction extends RouteAnnotation
 {
     /**
      * @var string
@@ -214,7 +215,7 @@ class ApiAction extends MVCAnnotation
      */
     public $responseType = 'JSON';
 
-    public function verifyMethods() {
+    public function validateMethods() {
         $this->methods = array_map('strtolower', $this->methods);
         sort($this->methods);
         return array_uintersect($this->methods, IHttpMethods::ALL, function ($v1, $v2) {
@@ -237,45 +238,6 @@ class ApiErrorAction extends Annotation {
      * @var bool
      */
     public $mapped = true;
-}
-
-/** @Target("method") */
-class Sitemap extends Annotation {
-
-    /**
-     * @var float
-     */
-    public $sitemapPriority = 0.5;
-    /**
-     * @var string
-     */
-    public $sitemapChangefreq = 'Always';
-
-    public function getSitemapPriority()
-    {
-        if($this->sitemapPriority == null)
-            return null;
-        if($this->sitemapPriority >= 0.0 && $this->sitemapPriority <= 1.0)
-        {
-            return $this->sitemapPriority;
-        }
-        else
-        {
-            return 0.5;
-        }
-    }
-
-    public function getSitemapChangefreq()
-    {
-        if($this->sitemapChangefreq == null)
-            return null;
-        $changefreq = strtolower($this->sitemapChangefreq);
-        if(in_array($changefreq, ['always', 'never', 'hourly', 'daily', 'weekly', 'monthly', 'yearly']))
-        {
-            return ucfirst($changefreq);
-        }
-        return null;
-    }
 }
 
 
