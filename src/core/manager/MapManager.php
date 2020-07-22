@@ -292,7 +292,7 @@ class MapManager
 
     private function checkView($methodName, $actionViewName, $controllerDirectory) {
         $viewName = $actionViewName ? $actionViewName : $methodName;
-        if(!file_exists($controllerDirectory.$viewName.".php") && !file_exists($controllerDirectory.$viewName.".html")) {
+        if(!file_exists($controllerDirectory.$viewName.".php") && !file_exists($controllerDirectory.$viewName.".html") && file_exists($this->viewsDir."/".ltrim($viewName, "//"))) {
             $viewName = null;
         }
         return $viewName;

@@ -191,13 +191,13 @@ class App
         }
     }
 
-    public function execute() : bool
+    public function execute()
     {
         try {
             $this->startTime = microtime(true);
             $this->run($this->request->getRequestMethod(), $this->request->getBaseUrl());
             $this->response->sendResponse();
-            return true;
+            return $this->response->getResponseCode();
         } catch (ELayer $e) {
             echo "An error occurred during the execution process: {$e->getMessage()}\n";
             return false;

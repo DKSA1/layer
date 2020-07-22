@@ -9,7 +9,7 @@
             "homepage": "https://github.com/RLoris"
         }
     ],
-    "minimum-stability": "beta",
+    "minimum-stability": "alpha",
     "require": {
         "php": ">=7.0"
     },

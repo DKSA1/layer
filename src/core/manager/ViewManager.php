@@ -134,6 +134,11 @@ class ViewManager
      */
     public function setContentView($contentView)
     {
+        if(strpos($contentView, "//") === 0 && $this->sharedViewExists(ltrim($contentView, '//')))
+        {
+            $this->contentView = $contentView;
+            return true;
+        }
         if($contentView && file_exists($this->viewDirectory."/$contentView.php"))
         {
             $this->contentView = $contentView;
@@ -193,8 +198,15 @@ class ViewManager
         {
             $layout->appendView(new View($this->views[$view]));
         }
+
         if($this->contentView)
-            $layout->appendView(new View($this->viewDirectory."/".$this->contentView.".php"));
+        {
+            if(strpos($this->contentView, "//") === 0)
+                $layout->appendView(new View($this->views[ltrim($this->contentView, "//")]));
+            else
+                $layout->appendView(new View($this->viewDirectory."/".$this->contentView.".php"));
+        }
+
         foreach ($this->afterViews as $view)
         {
             $layout->appendView(new View($this->views[$view]));
