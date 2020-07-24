@@ -1,0 +1,13 @@
+.idea/
+dev_LR.iml
+logs/
+controllers/
+app/models/
+layer/
+public/
+app/core/persistence/
+/vendor/
+
+configuration.json
+
+index.php
