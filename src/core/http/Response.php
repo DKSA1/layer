@@ -11,7 +11,7 @@ namespace rloris\layer\core\http;
 use rloris\layer\core\error\ERedirect;
 use rloris\layer\utils\File;
 
-class Response
+class Response implements IHttpCodes
 {
     /**
      * @var int $responseCode
@@ -130,7 +130,7 @@ class Response
     public function sendHeaders() {
         if(!headers_sent())
         {
-            HttpHeaders::responseHeader($this->getResponseCode());
+            http_response_code($this->getResponseCode());
             if($this->contentType && !isset($this->getHeaders()[IHttpHeaders::Content_Type]))
                 $this->putHeader(IHttpHeaders::Content_Type, $this->contentType);
             foreach ($this->getHeaders() as $h => $v)
@@ -268,6 +268,9 @@ class Response
         return $this->responseSent;
     }
 
+    /**
+     * @return Request
+     */
     public function getRequest(): Request
     {
         return $this->request;

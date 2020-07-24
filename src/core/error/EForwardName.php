@@ -24,7 +24,7 @@ class EForwardName extends ELayer
      */
     private $httpCode;
 
-    public function __construct(string $controller, string $action, int $httpCode, array $params = [], $message = "", $code = 0, Throwable $previous = null)
+    public function __construct(string $controller, string $action, int $httpCode, array $params = [], $message = "", $code = 0, \Throwable $previous = null)
     {
         parent::__construct($message, $code, $previous);
         $this->controller = $controller;

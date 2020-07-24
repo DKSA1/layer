@@ -2,10 +2,10 @@
 
 namespace rloris\layer\core\manager;
 
+use \rloris\layer\core\http\Response;
 use rloris\layer\core\config\Configuration;
 use rloris\layer\core\error\EMethod;
 use rloris\layer\core\error\ERoute;
-use rloris\layer\core\http\HttpHeaders;
 use rloris\layer\core\http\IHttpMethods;
 use rloris\layer\core\route\Route;
 
@@ -60,10 +60,10 @@ class RouteManager
             }
         } else {
             // Method not allowed
-            throw new EMethod("Requested method [{$method}] not allowed", HttpHeaders::BadRequest);
+            throw new EMethod("Requested method [{$method}] not allowed", Response::BadRequest);
         }
         // route not found
-        throw new ERoute("Requested route [{$url}] not found", HttpHeaders::NotFound);
+        throw new ERoute("Requested route [{$url}] not found", Response::NotFound);
     }
 
     /**

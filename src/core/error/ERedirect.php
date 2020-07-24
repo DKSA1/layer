@@ -1,7 +1,7 @@
 <?php
 namespace rloris\layer\core\error;
 
-use layer\utils\http\IHttpCodes;
+use rloris\layer\core\http\IHttpCodes;
 use Throwable;
 
 class ERedirect extends ELayer
