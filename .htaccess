@@ -1,9 +1,0 @@
-<IfModule mod_rewrite.c>    
-    Options +FollowSymLinks
-    RewriteEngine On
-    RewriteCond %{REQUEST_URI} !-d
-    RewriteCond %{REQUEST_URI} !-f
-    RewriteCond %{REQUEST_URI} !-l
-    RewriteRule ^(public)($|/) - [L]
-    RewriteRule ^(.*)$ index.php?url=$1 [L,QSA]
-</IfModule>
