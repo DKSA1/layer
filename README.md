@@ -39,27 +39,65 @@ First we need to setup our configuration.json file, it should look like this, it
         "log": "{path_to_the_folder_for_layer_output_log_files}"
     },
     "environment": {
-        "current": "{key_current_environment}",
-        "{key_environment_1}": {
+        "current": "dev",
+        "dev": {
             "routeTemplate" : "",
             "apiRouteTemplate" : "api",
             "log": false,
             "logTemplate" : "[{request_datetime}][{environment}][{request_method} {request_resource}]:{message}",
             "build": true
         },
-        "{key_environment_2}": {
+        "prod": {
             "routeTemplate" : "",
             "apiRouteTemplate" : "api",
             "log": true,
             "logTemplate" : "[{request_datetime}][{environment}][{client_ip} {client_browser} {client_os}][{request_method} {request_resource}]:{message}",
             "build": false
+        },
+        "{your_other_env_name}": {
+            "routeTemplate" : "",
+            "apiRouteTemplate" : "api",
+            "log": false,
+            "logTemplate" : "[{request_datetime}][{environment}][{client_ip} {client_browser} {client_os}][{request_method} {request_resource}]:{message}",
+            "build": false
         }
+    },
+    "layouts" : {
+        "{your_layout_name}": {
+          "pre": ["header","navbar","breadcrumbs"],
+          "post": ["footer"]
+        },
+        "{your_other_layout_name}": {
+          "pre": ["header", "navbar"],
+          "post": ["footer"]
+        }
+    },
+    "globals": {
+        "{name_of_the_constant}": "{value_of_this_constant}",
+        "{name_of_another_constant}": "{value_of_this_constant}",
     }
 }
 ```
+> locations
+- `controllers` points to the directory containing all the controllers of your application
+- `shared` points to the directory containing all the shared elements (views, filters) of your application
+- `build` specify the directory where layer will be generating files used by the framework
+- `log` points to the directory where log files will be stored
+> environment
+- `routeTemplate` is the prefix that will be added for all Controller routes
+- `ApiRouteTemplate` is the prefix that will be added for all ApiController routes
+- `log` enable/disable Logger     
+- `logTemplate` Tells to the Logger the structure to use for each log entry
+- `build` allows layer to scan for changes in folder (controllers, shared) and build the new routes map
+> layouts
+- Layouts are shared views attached together, they are used only for a website, not for an api, leave empty if you are building an api
+- keys are the names of your layouts, you can use layouts in Controllers for your actions by specifying the layout to use
+- Layouts are made out of `pre` views (will be rendered before your main content) and `post` views (will be rendered after your main content)
+- You change the layout configuration at runtime thanks to the viewManager available in Controllers
+> globals
+- You can store whatever you want in the `globals` section
+- All keys will be converted in uppercase constant, for example the value of `my_key` will be available in `MY_KEY` in the whole app
 
-    TODO DOC
-    
 ### Directory structure
 
 The structure is organized like this, you have folders with the name of the controller and inside you can find the controller php file, if it's a website controller, you can also find the views folder that contains the views used by this controller.
@@ -503,10 +541,10 @@ You can use the logger to write directly using a specific template from your con
 
     DOC TODO
 
-# TO-DO
+# What's planned next
 
 -   Add XML output support for API response
--   Add websocket server support (extension ?)
--   Add LORM (Layer Object Relational Mapping) support (extension ?)
 -   Add route parameters customization with annotation like ```@RouteParam(name="id", regex="...")``` support 
+-   Add websocket server support => (extension ?)
+-   Add LORM (Layer Object Relational Mapping) support => (extension ?)
 
