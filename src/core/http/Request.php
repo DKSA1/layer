@@ -1,10 +1,4 @@
 <?php
-/**
- * Created by IntelliJ IDEA.
- * User: Home
- * Date: 17-12-18
- * Time: 11:27
- */
 
 namespace rloris\layer\core\http;
 

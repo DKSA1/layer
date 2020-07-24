@@ -1,10 +1,4 @@
 <?php
-/**
- * Created by IntelliJ IDEA.
- * User: Home
- * Date: 10-11-18
- * Time: 13:51
- */
 
 namespace rloris\layer;
 

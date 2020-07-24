@@ -1,10 +1,4 @@
 <?php
-/**
- * Created by IntelliJ IDEA.
- * User: Home
- * Date: 01-09-19
- * Time: 19:35
- */
 
 namespace rloris\layer\core\mvc\controller;
 

@@ -1,14 +1,8 @@
 <?php
-/**
- * Created by IntelliJ IDEA.
- * User: Home
- * Date: 24-09-18
- * Time: 23:44
- */
+
 namespace rloris\layer\core\config;
 
 use rloris\layer\core\error\EConfiguration;
-use rloris\layer\core\http\HttpHeaders;
 
 abstract class Configuration
 {
