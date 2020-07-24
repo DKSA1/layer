@@ -125,11 +125,16 @@ class Response implements IHttpCodes
         if(!headers_sent())
         {
             http_response_code($this->getResponseCode());
-            if($this->contentType && !isset($this->getHeaders()[IHttpHeaders::Content_Type]))
+            if($this->contentType && !isset($this->headers[IHttpHeaders::Content_Type]))
                 $this->putHeader(IHttpHeaders::Content_Type, $this->contentType);
             foreach ($this->getHeaders() as $h => $v)
             {
-                header($h.": ".$v, true, $this->getResponseCode());
+                if($h != IHttpHeaders::Location)
+                    header($h.": ".$v, true, $this->getResponseCode());
+            }
+            if(isset($this->headers[IHttpHeaders::Location]))
+            {
+                header(IHttpHeaders::Location.": ".$this->headers[IHttpHeaders::Location]);
             }
             $this->headersSent = true;
         }
@@ -145,7 +150,10 @@ class Response implements IHttpCodes
                 $this->sendHeaders();
             }
 
-            echo $content;
+            if(!isset($this->headers[IHttpHeaders::Location]))
+            {
+                echo $content;
+            }
 
             $this->responseTime = microtime(true);
             $this->responseSent = true;

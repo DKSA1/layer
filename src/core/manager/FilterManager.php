@@ -36,8 +36,14 @@ class FilterManager
         return array_key_exists($name, $this->filters);
     }
 
-    public function clear() {
+    public function clear()
+    {
         $this->actives = [];
+    }
+
+    public function reset()
+    {
+        $this->actives = $this->globals;
     }
 
     public function add($name, $position = null): bool {
@@ -78,12 +84,9 @@ class FilterManager
                 $this->instances[$name] = new $filterClass();
             }
             if($in) {
-                $result = $this->instances[$name]->in();
+                $this->instances[$name]->in();
             } else {
-                $result = $this->instances[$name]->out();
-            }
-            if($result) {
-
+                $this->instances[$name]->out();
             }
         }
     }
