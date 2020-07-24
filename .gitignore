@@ -11,3 +11,5 @@ app/core/persistence/
 configuration.json
 
 index.php
+
+.htaccess
