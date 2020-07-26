@@ -37,7 +37,7 @@ class Logger
                     $log .= PHP_EOL;
 
             }
-            $logFolder = realpath(Configuration::get("locations/log")."/".APP_ENV);
+            $logFolder = Configuration::get("locations/log")."/".APP_ENV;
             if(!file_exists($logFolder))
             {
                 mkdir($logFolder,0777, true);

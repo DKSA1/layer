@@ -26,6 +26,12 @@ You can easily create API or website with Layer
 
 # Getting Started
 
+### Composer
+
+Get the latest version from master by running this command after your project initialisation
+
+    composer require rloris/layer:dev-master
+
 ### Configuration
 
 First we need to setup our configuration.json file, it should look like this, it's the minimum setup
