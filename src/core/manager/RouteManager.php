@@ -78,11 +78,14 @@ class RouteManager
     public function isApiUrl($url): bool {
         $apiTemplate = Configuration::environment('apiRouteTemplate');
         $siteTemplate = Configuration::environment('routeTemplate');
+        if($apiTemplate === false)
+            return false;
+        if($siteTemplate === false)
+            return true;
         if($apiTemplate === $siteTemplate)
            return false;
-        if(preg_match("#^$apiTemplate#i", $url)) {
+        if(preg_match("#^$apiTemplate#i", $url))
            return true;
-        }
         return false;
     }
 
