@@ -3,12 +3,12 @@
 namespace rloris\layer\core\manager;
 
 use rloris\layer\core\error\EParameter;
-use rloris\layer\core\http\HttpHeaders;
 use rloris\layer\core\http\IHttpContentType;
 use rloris\layer\core\http\Response;
 use rloris\layer\core\mvc\controller\CoreController;
 use rloris\layer\utils\Builder;
 use rloris\layer\utils\File;
+use rloris\layer\core\http\IHttpCodes;
 
 class ControllerManager
 {
@@ -57,7 +57,7 @@ class ControllerManager
             if(!$metadata["error"])
             {
                 // remove all filters
-                $this->filterManager->clear();
+                $this->filterManager->reset();
                 // controllers filters
                 foreach ($metadata['filters'] as $filter) {
                     $this->filterManager->add($filter);
@@ -176,7 +176,7 @@ class ControllerManager
                 }
                 else
                 {
-                    throw new EParameter("Required route parameter {$name} is missing", HttpHeaders::BadRequest);
+                    throw new EParameter("Required route parameter {$name} is missing", IHttpCodes::BadRequest);
                 }
             }
         }

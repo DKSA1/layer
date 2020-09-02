@@ -18,6 +18,7 @@ class MapManager
 {
     private $routes = [];
     private $map = [];
+    private $hash = [];
     private $viewsDir;
     private $filtersDir;
     private $controllersDir;
@@ -27,7 +28,7 @@ class MapManager
     {
         $shared = Configuration::get("locations/shared");
         $controllers = Configuration::get("locations/controllers");
-        $this->buildDir = Configuration::get("locations/build")."/".APP_ENV;
+        $this->buildDir = Configuration::get("locations/build").DIRECTORY_SEPARATOR.APP_ENV;
         $this->viewsDir = $shared . DIRECTORY_SEPARATOR . "views";
         $this->filtersDir = $shared . DIRECTORY_SEPARATOR . "filters";
         $this->controllersDir = $controllers;
@@ -36,12 +37,12 @@ class MapManager
     // load existing files
     public function load() {
         // map
-        $file = File::getInstance(APP_PATH.$this->buildDir."/map.json");
+        $file = File::getInstance(APP_PATH.$this->buildDir.DIRECTORY_SEPARATOR."map.json");
         if(!$file) throw new EConfiguration("File map.json not found in {$this->buildDir}", IHttpCodes::InternalServerError);
         $file->load();
         $this->map = json_decode($file->getContent(), true);
         // routes
-        $file = File::getInstance(APP_PATH.$this->buildDir."/routes.json");
+        $file = File::getInstance(APP_PATH.$this->buildDir.DIRECTORY_SEPARATOR."routes.json");
         if(!$file) throw new EConfiguration("File routes.json not found in {$this->buildDir}", IHttpCodes::InternalServerError);
         $file->load();
         $this->routes = json_decode($file->getContent(), true);
@@ -49,17 +50,27 @@ class MapManager
 
     // build map and routes files
     public function build() {
-        $this->routes = [];
-        $this->map = [
-            "shared" => [
-                "globals" => [],
-                "filters" => [],
-                "views" => []
-            ],
-            "controllers" => [
-
-            ]
-        ];
+        try
+        {
+            $hash = FIle::getInstance(APP_PATH.$this->buildDir.DIRECTORY_SEPARATOR."hash.json");
+            if(!$hash) throw new EConfiguration("File hash.json not found in {$this->buildDir}", IHttpCodes::InternalServerError);
+            $hash->load();
+            $this->hash = json_decode($hash->getContent(), true);
+            $this->load();
+        }
+        catch(EConfiguration $e)
+        {
+            $this->routes = [];
+            $this->map = [
+                "shared" => [
+                    "globals" => [],
+                    "filters" => [],
+                    "views" => []
+                ],
+                "controllers" => []
+            ];
+            $this->hash = [];
+        }
         // annotations
         // require_once "src/core/mvc/annotation/RouteAnnotations.php";
         require_once dirname(__DIR__, 1)."/mvc/annotation/RouteAnnotations.php";
@@ -69,8 +80,12 @@ class MapManager
             $filterFiles = new \RegexIterator($files, '/\.*filter.php$/i');
             $fileNames = [];
             foreach ($filterFiles as $filter) {
-                require_once $filter;
-                $fileNames[rtrim(basename($filter), '.php')] = trim($filter->getPathName());
+                if($this->isFileUpdated($filter))
+                {
+                    require_once $filter;
+                    $this->setHashFile(trim($filter));
+                    $fileNames[rtrim(basename($filter), '.php')] = trim($filter->getPathName());
+                }
             }
             $namespaces = preg_grep("/(" . implode("|", array_keys($fileNames)) . ")/", get_declared_classes());
             foreach ($namespaces as $namespace) {
@@ -90,7 +105,7 @@ class MapManager
                             }
                             $this->map['shared']['filters'][$filterName] = [
                                 "namespace" => $namespace,
-                                "path" => realpath($fileNames[basename($namespace)])
+                                "path" => $this->fixPathDS($fileNames[basename($namespace)])
                             ];
                             if($annotation instanceof \GlobalFilter)
                             {
@@ -107,7 +122,7 @@ class MapManager
             $viewFiles = new \RegexIterator($files, "/\.(php|html)$/");
             foreach ($viewFiles as $view)
             {
-                $this->map["shared"]["views"][preg_replace("/\.(php|html)$/", "", str_replace("\\", "/", trim(str_replace($this->viewsDir, "", $view), DIRECTORY_SEPARATOR)))] = realpath(trim($view->getPathName()));
+                $this->map["shared"]["views"][preg_replace("/\.(php|html)$/", "", str_replace("\\", "/", trim(str_replace($this->viewsDir, "", $view), DIRECTORY_SEPARATOR)))] = $this->fixPathDS(trim($view->getPathName()));
             }
         }
         // controllers
@@ -118,8 +133,13 @@ class MapManager
             $fileNames = [];
             foreach ($modFiles as $mod)
             {
-                require_once $mod;
-                $fileNames[rtrim(basename($mod), '.php')] = realpath(trim($mod->getPathName()));
+                if($this->isFileUpdated($mod))
+                {
+                    var_dump('building: '.$mod);
+                    require_once $mod;
+                    $this->setHashFile(trim($mod));
+                    $fileNames[rtrim(basename($mod), '.php')] = $this->fixPathDS(trim($mod->getPathName()));
+                }
             }
             $namespaces = preg_grep("/(" . implode("|", array_keys($fileNames)) . ")/", get_declared_classes());
             foreach ($namespaces as $namespace)
@@ -280,7 +300,7 @@ class MapManager
                 }
             }
         }
-        $this->save($this->routes, $this->map);
+        $this->save($this->routes, $this->map, $this->hash);
     }
 
     private function checkFilter($actionFilters, $map) {
@@ -329,11 +349,41 @@ class MapManager
         return $parameters;
     }
 
+    private function isFileUpdated(string $path) : bool
+    {
+        if(array_key_exists($path, $this->hash))
+        {
+            $lastModificationTime = filemtime($path);
+            $hash = explode(" ",$this->hash[$path]);
+            if(isset($hash[0]) && $lastModificationTime === intval($hash[0]))
+            {
+                return false;
+            }
+            if(isset($hash[1]) && md5_file($path) === $hash[1])
+            {
+                $this->hash[$path] = filemtime($path)." ".$hash[1];
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private function setHashFile($path)
+    {
+        $this->hash[$path] = filemtime($path)." ".md5_file($path);
+    }
+
+    private function fixPathDS($path)
+    {
+        return str_replace("\\", DIRECTORY_SEPARATOR, str_replace("/", DIRECTORY_SEPARATOR, $path));
+    }
+
     // save map in files
-    private function save(array $routes, array $map) {
+    private function save(array $routes, array $map, array $hash) {
         if(!file_exists(APP_PATH.$this->buildDir)) mkdir(APP_PATH.$this->buildDir, 0777, true);
-        file_put_contents(APP_PATH.$this->buildDir.'/map.json', json_encode($map, JSON_PRETTY_PRINT));
-        file_put_contents(APP_PATH.$this->buildDir.'/routes.json', json_encode($routes, JSON_PRETTY_PRINT));
+        file_put_contents(APP_PATH.$this->buildDir.DIRECTORY_SEPARATOR.'map.json', json_encode($map, JSON_PRETTY_PRINT));
+        file_put_contents(APP_PATH.$this->buildDir.DIRECTORY_SEPARATOR.'routes.json', json_encode($routes, JSON_PRETTY_PRINT));
+        file_put_contents(APP_PATH.$this->buildDir.DIRECTORY_SEPARATOR.'hash.json', json_encode($hash, JSON_PRETTY_PRINT));
     }
 
     public function getMap() {

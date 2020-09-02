@@ -274,15 +274,19 @@ class Request
      * @param $name
      * @return string|null
      */
-    public function getHeader($name)
+    public function getHeader($header)
     {
-        $name = strtoupper(str_replace('-', '_', $name));
+        $name = strtoupper(str_replace('-', '_', $header));
         if(array_key_exists($name, $_SERVER)) {
             return $_SERVER[$name];
         }
         else if(array_key_exists("HTTP_".$name, $_SERVER))
         {
             return $_SERVER["HTTP_".$name];
+        }
+        else if(array_key_exists($header, apache_request_headers()))
+        {
+            return apache_request_headers()[$header];
         }
         return null;
     }

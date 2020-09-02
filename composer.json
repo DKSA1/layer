@@ -1,6 +1,7 @@
 {
     "name": "rloris/layer",
     "description": "Layer is an Object Oriented MVC PHP Framework that works with annotations",
+    "keywords": ["framework", "mvc", "annotation"],
     "type": "library",
     "license": "MIT",
     "authors": [

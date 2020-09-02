@@ -26,6 +26,12 @@ You can easily create API or website with Layer
 
 # Getting Started
 
+### Composer
+
+Get the latest version from master by running this command after your project initialisation
+
+    composer require rloris/layer:dev-master
+
 ### Configuration
 
 First we need to setup our configuration.json file, it should look like this, it's the minimum setup
@@ -85,10 +91,10 @@ First we need to setup our configuration.json file, it should look like this, it
 - `log` points to the directory where log files will be stored
 > environment
 - `routeTemplate` is the prefix that will be added for all Controller routes
-- `ApiRouteTemplate` is the prefix that will be added for all ApiController routes
+- `ApiRouteTemplate` is the prefix that will be added for all ApiController routes (For example: useful for api errors to show them as json instead of html view)
 - `log` enable/disable Logger     
 - `logTemplate` Tells to the Logger the structure to use for each log entry
-- `build` allows layer to scan for changes in folder (controllers, shared) and build the new routes map
+- `build` enable/disable scan for changes in folder (controllers, shared) to build the new routes map (recommended: set true in development env and false in production)
 > layouts
 - Layouts are shared views attached together, they are used only for a website, not for an api, leave empty if you are building an api
 - keys are the names of your layouts, you can use layouts in Controllers for your actions by specifying the layout to use
@@ -198,13 +204,11 @@ All requests should be forwarded to your index.php entry file or public folder w
 
 ### Setup Done
 
-Once your setup is done you can begin to create controller classes, view files and filter classes by following the instructions in the next chapter
+Once your setup is done you can begin to create controller classes, view files and filter classes by following the instructions in the next chapter. Layer works with annotations on classes and methods, it automatically builds the routes map, no need to tell the router to add a route. Layer detects if a file was updated or not by using hashes to only rebuild the updated part.
 
 # Controllers
 
-Layer works with annotations on classes and methods, it automatically builds the routes map, no need to tell the router to add routes. 
-
-You should NOT display anything in your controllers, but pass this content to the view if you want to display it. WHY ? because headers are handled and sent by Layer, by displaying something in the controllers or filters you break this system.
+You should NOT display anything in your controllers, but pass this content to the view if you want to display it. WHY ? because headers are handled and sent by Layer, by displaying something in the controllers or filters you break this system and your custom layer headers won't be sent.
 
 Layer detects a controller if it's in the controllers folder specified in the configuration.json file, and that the controller's class name contains ```{Your_Name}Controller.php```, once your class is created just extends it with your specific needs:
 
@@ -499,9 +503,32 @@ You can add and remove filter at runtime thanks to the filterManager available i
 
 Views are php files that contains mainly HTML with a few php code, but you should not put your business logic there, to pass content to the view, it's the same way you send data for an api, just add your content to ```self::data[yourkey] = content;``` in your controller or filter and then access it like this ```<?= $this->yourkey ?>```, if the content you are accessing in your view does not exists, it won't display anything and will not throw an error.
 
-You can add and remove views at runtime thanks to the viewManager available with `self::$viewManager` by extending the class `BaseController`
+You can add and remove views at runtime thanks to the viewManager available with `self::$viewManager` by extending the class `BaseController`.
 
-    DOC TODO
+`PreViews` are shared views that will be displayed before the main content
+
+`PostViews` are shared views that will be displayed after the main content
+
+`ContentView` is the main content view that will be displayed after the previews and before the postviews
+
+```
+        // getting GET parameter with name ok
+        $ok = self::$request->getGet('ok');
+
+        // adding alert shared view before main content of this action
+        if($ok === 'true')
+        {
+            self::$viewManager->addPreView('alerts/success');
+        }
+        else if($ok === 'false')
+        {
+            self::$viewManager->addPreView('alerts/failure');
+        }
+        else
+        {
+            self::$viewManager->addPreView('alerts/alert');
+        }
+```
     
 # Utils
 

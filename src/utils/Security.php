@@ -6,6 +6,19 @@ namespace rloris\layer\utils;
 
 class Security
 {
+    public static function token($length = 16)
+    {
+        try
+        {
+            return bin2hex(random_bytes($length));
+        }
+        catch(\Exception $e)
+        {
+            return bin2hex(openssl_random_pseudo_bytes($length));
+        }
+    }
+
+
     public static function decrypt($b64data, $secret) {
         $dData = base64_decode($b64data);
         $salt = substr($dData, 0, 16);
