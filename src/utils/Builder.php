@@ -105,21 +105,21 @@ class Builder
                         {
                             if($docTypeInfo->type === 'object' && $docTypeInfo->namespace === '\DateTime')
                             {
-                                    try
+                                try
+                                {
+                                    $date = new \DateTime($value);
+                                    if($setPropertiesWithSetters && $reflectionSetter && $reflectionSetter->isPublic())
                                     {
-                                        $date = new \DateTime($value);
-                                        if($setPropertiesWithSetters && $reflectionSetter && $reflectionSetter->isPublic())
-                                        {
-                                            $reflectionSetter->invokeArgs($obj, [$date]);
-                                        }
-                                        else if(!$setPropertiesWithSetters)
-                                        {
-                                            $reflectionProperty->setAccessible(true);
-                                            $reflectionProperty->setValue($obj, $date);
-                                        }
-
+                                        $reflectionSetter->invokeArgs($obj, [$date]);
                                     }
-                                    catch(\TypeError $e){}
+                                    else if(!$setPropertiesWithSetters)
+                                    {
+                                        $reflectionProperty->setAccessible(true);
+                                        $reflectionProperty->setValue($obj, $date);
+                                    }
+
+                                }
+                                catch(\TypeError $e){}
                             }
                             else
                             {
@@ -130,7 +130,8 @@ class Builder
                                 else if(!$setPropertiesWithSetters)
                                 {
                                     $reflectionProperty->setAccessible(true);
-                                    settype($value, $docTypeInfo->type);
+                                    if($docTypeInfo && $value !== null)
+                                        settype($value, $docTypeInfo->type);
                                     $reflectionProperty->setValue($obj, $value);
                                 }
                             }

@@ -144,7 +144,7 @@ class File
 
     public function rename($newName) {
         if($this->deleted) return null;
-        $res = rename($this->absolutePath, realpath(dirname($this->absolutePath).'/'.basename($newName)));
+        $res = rename($this->absolutePath, dirname($this->absolutePath).'/'.basename($newName));
         if($res) {
             $this->fullname = basename($newName);
             $this->absolutePath = dirname($this->absolutePath).'/'.$this->fullname;

@@ -8,6 +8,7 @@ use rloris\layer\core\http\Response;
 use rloris\layer\core\mvc\controller\CoreController;
 use rloris\layer\utils\Builder;
 use rloris\layer\utils\File;
+use rloris\layer\core\http\IHttpCodes;
 
 class ControllerManager
 {
@@ -55,7 +56,7 @@ class ControllerManager
             $metadata = $this->controllers[$controller];
             if(!$metadata["error"])
             {
-                // remove all filters but not global ones
+                // remove all filters
                 $this->filterManager->reset();
                 // controllers filters
                 foreach ($metadata['filters'] as $filter) {
@@ -175,7 +176,7 @@ class ControllerManager
                 }
                 else
                 {
-                    throw new EParameter("Required route parameter {$name} is missing", HttpHeaders::BadRequest);
+                    throw new EParameter("Required route parameter {$name} is missing", IHttpCodes::BadRequest);
                 }
             }
         }
