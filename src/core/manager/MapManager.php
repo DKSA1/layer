@@ -87,14 +87,15 @@ class MapManager
                     $fileNames[rtrim(basename($filter), '.php')] = trim($filter->getPathName());
                 }
             }
-            $namespaces = preg_grep("/(" . implode("|", array_keys($fileNames)) . ")/", get_declared_classes());
-            foreach ($namespaces as $namespace) {
-                $reflectionClass = new \ReflectionAnnotatedClass($namespace);
-                if ($reflectionClass->isSubclassOf(BaseFilter::class))
-                {
-                    $annotation = $reflectionClass->hasAnnotation('Filter') ? $reflectionClass->getAnnotation("Filter") : ($reflectionClass->hasAnnotation('GlobalFilter') ? $reflectionClass->getAnnotation('GlobalFilter') : null);
-                    if ($annotation && $annotation->mapped)
+            if(count($fileNames) > 0) {
+                $namespaces = preg_grep("/(" . implode("|", array_keys($fileNames)) . ")/", get_declared_classes());
+                foreach ($namespaces as $namespace) {
+                    $reflectionClass = new \ReflectionAnnotatedClass($namespace);
+                    if ($reflectionClass->isSubclassOf(BaseFilter::class))
                     {
+                        $annotation = $reflectionClass->hasAnnotation('Filter') ? $reflectionClass->getAnnotation("Filter") : ($reflectionClass->hasAnnotation('GlobalFilter') ? $reflectionClass->getAnnotation('GlobalFilter') : null);
+                        if ($annotation && $annotation->mapped)
+                        {
                             if (($n = $annotation->validateName()))
                             {
                                 $filterName = strtolower($n);
@@ -111,6 +112,7 @@ class MapManager
                             {
                                 array_push($this->map['shared']['globals'], $filterName);
                             }
+                        }
                     }
                 }
             }
@@ -135,164 +137,165 @@ class MapManager
             {
                 if($this->isFileUpdated($mod))
                 {
-                    var_dump('building: '.$mod);
                     require_once $mod;
                     $this->setHashFile(trim($mod));
                     $fileNames[rtrim(basename($mod), '.php')] = $this->fixPathDS(trim($mod->getPathName()));
                 }
             }
-            $namespaces = preg_grep("/(" . implode("|", array_keys($fileNames)) . ")/", get_declared_classes());
-            foreach ($namespaces as $namespace)
-            {
-                $reflectionClass = new \ReflectionAnnotatedClass($namespace);
-                if (($reflectionClass->isSubclassOf(ApiBaseController::class) || $reflectionClass->isSubclassOf(BaseController::class)) && $reflectionClass->isInstantiable())
+            if(count($fileNames) > 0) {
+                $namespaces = preg_grep("/(" . implode("|", array_keys($fileNames)) . ")/", get_declared_classes());
+                foreach ($namespaces as $namespace)
                 {
-                    /**
-                     * @var \Controller|\ApiController|\ErrorController|\ApiErrorController|\DefaultController $controllerAnnotation
-                     */
-                    $controllerAnnotation = null;
-                    $actionAnnotationClass = '';
-                    $isError = false;
-                    $isApi = false;
-                    $routeTemplate = '';
-                    $handler = $namespace."@";
-                    $defaultActionName = null;
-                    $defaultController = false;
-
-                    $layoutName = null;
-                    $viewName = null;
-                    $filters = [];
-                    if($reflectionClass->isSubclassOf(ApiErrorBaseController::class) && $reflectionClass->hasAnnotation('ApiErrorController'))
+                    $reflectionClass = new \ReflectionAnnotatedClass($namespace);
+                    if (($reflectionClass->isSubclassOf(ApiBaseController::class) || $reflectionClass->isSubclassOf(BaseController::class)) && $reflectionClass->isInstantiable())
                     {
-                        // api error
-                        $isApi = true;
-                        $isError = true;
-                        $actionAnnotationClass = 'ApiErrorAction';
                         /**
-                         * @var \ApiErrorController $controllerAnnotation
+                         * @var \Controller|\ApiController|\ErrorController|\ApiErrorController|\DefaultController $controllerAnnotation
                          */
-                        $controllerAnnotation = $reflectionClass->getAnnotation('ApiErrorController');
-                        //$routeTemplate = Configuration::get('environment/'.Configuration::$environment.'/apiRouteTemplate');
-                        $routeTemplate = "api";
-                    }
-                    else if($reflectionClass->isSubclassOf(ErrorBaseController::class) && $reflectionClass->hasAnnotation('ErrorController'))
-                    {
-                        // error
+                        $controllerAnnotation = null;
+                        $actionAnnotationClass = '';
+                        $isError = false;
                         $isApi = false;
-                        $isError = true;
-                        $actionAnnotationClass = 'ErrorAction';
-                        /**
-                         * @var \ErrorController $controllerAnnotation
-                         */
-                        $controllerAnnotation = $reflectionClass->getAnnotation('ErrorController');
-                        //$routeTemplate = Configuration::get('environment/'.Configuration::$environment.'/routeTemplate');
-                        $routeTemplate = "";
-                        $layoutName = $controllerAnnotation->layoutName;
-                    }
-                    else if($reflectionClass->isSubclassOf(ApiBaseController::class) && $reflectionClass->hasAnnotation('ApiController'))
-                    {
-                        $isApi = true;
-                        $actionAnnotationClass = 'ApiAction';
-                        /**
-                         * @var \ApiController $controllerAnnotation
-                         */
-                        $controllerAnnotation = $reflectionClass->getAnnotation('ApiController');
-                        $defaultActionName = $reflectionClass->hasMethod($controllerAnnotation->defaultAction) ? $controllerAnnotation->defaultAction : null;
-                        $rt = $controllerAnnotation->validateRouteTemplate();
-                        $routeTemplate = Configuration::environment('apiRouteTemplate')."/".( $rt ? $rt : str_ireplace("controller", "", basename($reflectionClass->name)));
-                        $filters = $this->checkFilter($controllerAnnotation->getFilters(), $this->map);
-                    }
-                    else if($reflectionClass->isSubclassOf(BaseController::class) && ( $reflectionClass->hasAnnotation('Controller') || $reflectionClass->hasAnnotation('DefaultController')))
-                    {
-                        $actionAnnotationClass = 'Action';
-                        /**
-                         * @var \Controller|\DefaultController $controllerAnnotation
-                         */
-                        $controllerAnnotation = $reflectionClass->hasAnnotation('Controller') ? $reflectionClass->getAnnotation('Controller') : $reflectionClass->getAnnotation('DefaultController');
-                        $defaultActionName = $reflectionClass->hasMethod($controllerAnnotation->defaultAction) ? $controllerAnnotation->defaultAction : null;
-                        $rt = $controllerAnnotation->validateRouteTemplate();
-                        $routeTemplate = Configuration::environment('routeTemplate')."/".( $rt ? $rt : str_ireplace("controller", "", basename($reflectionClass->name)));
-                        $layoutName = $controllerAnnotation->layoutName;
-                        $filters = $this->checkFilter($controllerAnnotation->getFilters(), $this->map);
-                        if($controllerAnnotation instanceof \DefaultController) $defaultController = true;
-                    }
-                    $this->map['controllers'][$namespace] = [
-                        "path" => $fileNames[basename($namespace)],
-                        "filters" => $filters,
-                        "api" => $isApi,
-                        "error" => $isError,
-                        "parameters" => $reflectionClass->hasMethod('__construct') ? $this->getParameters($reflectionClass->getConstructor()) : [],
-                        "actions" => []
-                    ];
-                    $routeTemplate = trim($routeTemplate, "/");
-                    foreach ($reflectionClass->getMethods(\ReflectionMethod::IS_PUBLIC) as $m) {
-                        $controllerMethod = $reflectionClass->getMethod($m->name);
-                        if($controllerMethod->hasAnnotation($actionAnnotationClass)) {
+                        $routeTemplate = '';
+                        $handler = $namespace."@";
+                        $defaultActionName = null;
+                        $defaultController = false;
+
+                        $layoutName = null;
+                        $viewName = null;
+                        $filters = [];
+                        if($reflectionClass->isSubclassOf(ApiErrorBaseController::class) && $reflectionClass->hasAnnotation('ApiErrorController'))
+                        {
+                            // api error
+                            $isApi = true;
+                            $isError = true;
+                            $actionAnnotationClass = 'ApiErrorAction';
                             /**
-                             * @var \Action|\ApiAction|\ErrorAction|\ApiErrorAction $actionAnnotation
+                             * @var \ApiErrorController $controllerAnnotation
                              */
-                            $actionAnnotation = $controllerMethod->getAnnotation($actionAnnotationClass);
-                            if($actionAnnotation->mapped) {
-                                $routeTemplates = [];
-                                $methods = [];
-                                $actionFilters = [];
-                                if($isError) {
-                                    if($isApi) {
-                                        /**
-                                         * @var \ApiErrorAction $actionAnnotation
-                                         */
-                                        // if(count($actionAnnotation->errorCodes) === 0) continue;
+                            $controllerAnnotation = $reflectionClass->getAnnotation('ApiErrorController');
+                            //$routeTemplate = Configuration::get('environment/'.Configuration::$environment.'/apiRouteTemplate');
+                            $routeTemplate = "api";
+                        }
+                        else if($reflectionClass->isSubclassOf(ErrorBaseController::class) && $reflectionClass->hasAnnotation('ErrorController'))
+                        {
+                            // error
+                            $isApi = false;
+                            $isError = true;
+                            $actionAnnotationClass = 'ErrorAction';
+                            /**
+                             * @var \ErrorController $controllerAnnotation
+                             */
+                            $controllerAnnotation = $reflectionClass->getAnnotation('ErrorController');
+                            //$routeTemplate = Configuration::get('environment/'.Configuration::$environment.'/routeTemplate');
+                            $routeTemplate = "";
+                            $layoutName = $controllerAnnotation->layoutName;
+                        }
+                        else if($reflectionClass->isSubclassOf(ApiBaseController::class) && $reflectionClass->hasAnnotation('ApiController'))
+                        {
+                            $isApi = true;
+                            $actionAnnotationClass = 'ApiAction';
+                            /**
+                             * @var \ApiController $controllerAnnotation
+                             */
+                            $controllerAnnotation = $reflectionClass->getAnnotation('ApiController');
+                            $defaultActionName = $reflectionClass->hasMethod($controllerAnnotation->defaultAction) ? $controllerAnnotation->defaultAction : null;
+                            $rt = $controllerAnnotation->validateRouteTemplate();
+                            $routeTemplate = Configuration::environment('apiRouteTemplate')."/".( $rt ? $rt : str_ireplace("controller", "", basename($reflectionClass->name)));
+                            $filters = $this->checkFilter($controllerAnnotation->getFilters(), $this->map);
+                        }
+                        else if($reflectionClass->isSubclassOf(BaseController::class) && ( $reflectionClass->hasAnnotation('Controller') || $reflectionClass->hasAnnotation('DefaultController')))
+                        {
+                            $actionAnnotationClass = 'Action';
+                            /**
+                             * @var \Controller|\DefaultController $controllerAnnotation
+                             */
+                            $controllerAnnotation = $reflectionClass->hasAnnotation('Controller') ? $reflectionClass->getAnnotation('Controller') : $reflectionClass->getAnnotation('DefaultController');
+                            $defaultActionName = $reflectionClass->hasMethod($controllerAnnotation->defaultAction) ? $controllerAnnotation->defaultAction : null;
+                            $rt = $controllerAnnotation->validateRouteTemplate();
+                            $routeTemplate = Configuration::environment('routeTemplate')."/".( $rt ? $rt : str_ireplace("controller", "", basename($reflectionClass->name)));
+                            $layoutName = $controllerAnnotation->layoutName;
+                            $filters = $this->checkFilter($controllerAnnotation->getFilters(), $this->map);
+                            if($controllerAnnotation instanceof \DefaultController) $defaultController = true;
+                        }
+                        $this->map['controllers'][$namespace] = [
+                            "path" => $fileNames[basename($namespace)],
+                            "filters" => $filters,
+                            "api" => $isApi,
+                            "error" => $isError,
+                            "parameters" => $reflectionClass->hasMethod('__construct') ? $this->getParameters($reflectionClass->getConstructor()) : [],
+                            "actions" => []
+                        ];
+                        $routeTemplate = trim($routeTemplate, "/");
+                        foreach ($reflectionClass->getMethods(\ReflectionMethod::IS_PUBLIC) as $m) {
+                            $controllerMethod = $reflectionClass->getMethod($m->name);
+                            if($controllerMethod->hasAnnotation($actionAnnotationClass)) {
+                                /**
+                                 * @var \Action|\ApiAction|\ErrorAction|\ApiErrorAction $actionAnnotation
+                                 */
+                                $actionAnnotation = $controllerMethod->getAnnotation($actionAnnotationClass);
+                                if($actionAnnotation->mapped) {
+                                    $routeTemplates = [];
+                                    $methods = [];
+                                    $actionFilters = [];
+                                    if($isError) {
+                                        if($isApi) {
+                                            /**
+                                             * @var \ApiErrorAction $actionAnnotation
+                                             */
+                                            // if(count($actionAnnotation->errorCodes) === 0) continue;
+                                        } else {
+                                            /**
+                                             * @var \ErrorAction $actionAnnotation
+                                             */
+                                            $viewName = $this->checkView($m->name, $actionAnnotation->viewName, dirname($fileNames[basename($namespace)]). DIRECTORY_SEPARATOR . "views" . DIRECTORY_SEPARATOR);
+                                        }
+                                        array_push($methods, '*');
+                                        if(count($actionAnnotation->errorCodes) !== 0)
+                                            array_push($routeTemplates, ...$actionAnnotation->errorCodes);
+                                        else
+                                            array_push($routeTemplates, '/');
                                     } else {
-                                        /**
-                                         * @var \ErrorAction $actionAnnotation
-                                         */
-                                        $viewName = $this->checkView($m->name, $actionAnnotation->viewName, dirname($fileNames[basename($namespace)]). DIRECTORY_SEPARATOR . "views" . DIRECTORY_SEPARATOR);
+                                        if($isApi) {
+                                            /**
+                                             * @var \ApiAction $actionAnnotation
+                                             */
+                                        } else {
+                                            /**
+                                             * @var \Action $actionAnnotation
+                                             */
+                                            $viewName = $this->checkView($m->name, $actionAnnotation->viewName, dirname($fileNames[basename($namespace)]). DIRECTORY_SEPARATOR . "views" . DIRECTORY_SEPARATOR);
+                                        }
+                                        $actionFilters = $this->checkFilter($actionAnnotation->getFilters(), $this->map);
+                                        array_push($methods, ...$actionAnnotation->validateMethods());
+                                        $rt = $actionAnnotation->validateRouteTemplate();
+                                        array_push($routeTemplates, $rt ? $rt : $m->name);
                                     }
-                                    array_push($methods, '*');
-                                    if(count($actionAnnotation->errorCodes) !== 0)
-                                        array_push($routeTemplates, ...$actionAnnotation->errorCodes);
-                                    else
-                                        array_push($routeTemplates, '/');
-                                } else {
-                                    if($isApi) {
-                                        /**
-                                         * @var \ApiAction $actionAnnotation
-                                         */
-                                    } else {
-                                        /**
-                                         * @var \Action $actionAnnotation
-                                         */
-                                        $viewName = $this->checkView($m->name, $actionAnnotation->viewName, dirname($fileNames[basename($namespace)]). DIRECTORY_SEPARATOR . "views" . DIRECTORY_SEPARATOR);
+                                    $this->map['controllers'][$namespace]['actions'][$m->name] = [
+                                        "filters" => array_diff($actionFilters, $filters),
+                                        "view" => $isApi ? null : $viewName,
+                                        "layout" => $isApi ? null : $this->checkLayout($layoutName, $actionAnnotation->layoutName),
+                                        "parameters" => $this->getParameters($m)
+                                    ];
+                                    // default action for controller
+                                    if($defaultActionName === $m->name) {
+                                        array_push($routeTemplates, "");
                                     }
-                                    $actionFilters = $this->checkFilter($actionAnnotation->getFilters(), $this->map);
-                                    array_push($methods, ...$actionAnnotation->validateMethods());
-                                    $rt = $actionAnnotation->validateRouteTemplate();
-                                    array_push($routeTemplates, $rt ? $rt : $m->name);
-                                }
-                                $this->map['controllers'][$namespace]['actions'][$m->name] = [
-                                    "filters" => array_diff($actionFilters, $filters),
-                                    "view" => $isApi ? null : $viewName,
-                                    "layout" => $isApi ? null : $this->checkLayout($layoutName, $actionAnnotation->layoutName),
-                                    "parameters" => $this->getParameters($m)
-                                ];
-                                // default action for controller
-                                if($defaultActionName === $m->name) {
-                                    array_push($routeTemplates, "");
-                                }
-                                // add routes
-                                foreach ($methods as $method) {
-                                    // add to routes
-                                    if(!array_key_exists($method, $this->routes)) {
-                                        $this->routes[$method] = [];
+                                    // add routes
+                                    foreach ($methods as $method) {
+                                        // add to routes
+                                        if(!array_key_exists($method, $this->routes)) {
+                                            $this->routes[$method] = [];
+                                        }
+                                        foreach ($routeTemplates as $template) {
+                                            $this->routes[$method][trim($routeTemplate."/".$template, "/")] = $handler.$m->name;
+                                            if($defaultController)
+                                                $this->routes[$method][Configuration::environment('routeTemplate')] = $handler.$defaultActionName;
+                                        }
+                                        uksort($this->routes[$method], function($a, $b) {
+                                            return strcmp($b, $a) ?: strlen($b) <=> strlen($a);
+                                        });
                                     }
-                                    foreach ($routeTemplates as $template) {
-                                        $this->routes[$method][trim($routeTemplate."/".$template, "/")] = $handler.$m->name;
-                                        if($defaultController)
-                                            $this->routes[$method][Configuration::environment('routeTemplate')] = $handler.$defaultActionName;
-                                    }
-                                    uksort($this->routes[$method], function($a, $b) {
-                                        return strcmp($b, $a) ?: strlen($b) <=> strlen($a);
-                                    });
                                 }
                             }
                         }
