@@ -31,6 +31,8 @@ You can easily create API or website with Layer
 Get the latest version from master by running this command after your project initialisation
 
     composer require rloris/layer:dev-master
+    
+If you update layer, delete the generated files (map.json, routes.json, hash.json) to get the latest changes
 
 ### Configuration
 

@@ -35,7 +35,8 @@ class MapManager
     }
 
     // load existing files
-    public function load() {
+    public function load()
+    {
         // map
         $file = File::getInstance(APP_PATH.$this->buildDir.DIRECTORY_SEPARATOR."map.json");
         if(!$file) throw new EConfiguration("File map.json not found in {$this->buildDir}", IHttpCodes::InternalServerError);
@@ -48,15 +49,24 @@ class MapManager
         $this->routes = json_decode($file->getContent(), true);
     }
 
+    private function loadHash()
+    {
+        $hash = File::getInstance(APP_PATH.$this->buildDir.DIRECTORY_SEPARATOR."hash.json");
+        if(!$hash) throw new EConfiguration("File hash.json not found in {$this->buildDir}", IHttpCodes::InternalServerError);
+        $hash->load();
+        $this->hash = json_decode($hash->getContent(), true);
+    }
+
     // build map and routes files
     public function build() {
         try
         {
-            $hash = FIle::getInstance(APP_PATH.$this->buildDir.DIRECTORY_SEPARATOR."hash.json");
-            if(!$hash) throw new EConfiguration("File hash.json not found in {$this->buildDir}", IHttpCodes::InternalServerError);
-            $hash->load();
-            $this->hash = json_decode($hash->getContent(), true);
+            // load hash
+            $this->loadHash();
+            // load map & routes
             $this->load();
+            // check files
+            $this->checkFiles();
         }
         catch(EConfiguration $e)
         {
@@ -72,7 +82,6 @@ class MapManager
             $this->hash = [];
         }
         // annotations
-        // require_once "src/core/mvc/annotation/RouteAnnotations.php";
         require_once dirname(__DIR__, 1)."/mvc/annotation/RouteAnnotations.php";
         // filters
         if(file_exists($this->filtersDir)) {
@@ -83,8 +92,7 @@ class MapManager
                 if($this->isFileUpdated($filter))
                 {
                     require_once $filter;
-                    $this->setHashFile(trim($filter));
-                    $fileNames[rtrim(basename($filter), '.php')] = trim($filter->getPathName());
+                    $fileNames[rtrim(basename($filter), '.php')] = $this->fixPathDS($filter->getPathName());
                 }
             }
             if(count($fileNames) > 0) {
@@ -106,12 +114,13 @@ class MapManager
                             }
                             $this->map['shared']['filters'][$filterName] = [
                                 "namespace" => $namespace,
-                                "path" => $this->fixPathDS($fileNames[basename($namespace)])
+                                "path" => $fileNames[basename($namespace)]
                             ];
-                            if($annotation instanceof \GlobalFilter)
+                            if($annotation instanceof \GlobalFilter && !in_array($filterName, $this->map['shared']['globals']))
                             {
                                 array_push($this->map['shared']['globals'], $filterName);
                             }
+                            $this->setHashFile($fileNames[basename($namespace)], $namespace);
                         }
                     }
                 }
@@ -138,8 +147,7 @@ class MapManager
                 if($this->isFileUpdated($mod))
                 {
                     require_once $mod;
-                    $this->setHashFile(trim($mod));
-                    $fileNames[rtrim(basename($mod), '.php')] = $this->fixPathDS(trim($mod->getPathName()));
+                    $fileNames[rtrim(basename($mod), '.php')] = $this->fixPathDS($mod->getPathName());
                 }
             }
             if(count($fileNames) > 0) {
@@ -217,6 +225,11 @@ class MapManager
                             $layoutName = $controllerAnnotation->layoutName;
                             $filters = $this->checkFilter($controllerAnnotation->getFilters(), $this->map);
                             if($controllerAnnotation instanceof \DefaultController) $defaultController = true;
+                        }
+                        // remove unused / old controller routes
+                        if(isset($this->map['controllers'][$namespace]))
+                        {
+                            $this->removeRoutes($namespace, $isError);
                         }
                         $this->map['controllers'][$namespace] = [
                             "path" => $fileNames[basename($namespace)],
@@ -300,6 +313,7 @@ class MapManager
                             }
                         }
                     }
+                    $this->setHashFile($fileNames[basename($namespace)], $namespace);
                 }
             }
         }
@@ -371,14 +385,73 @@ class MapManager
         return true;
     }
 
-    private function setHashFile($path)
+    private function setHashFile(string $path, string $namespace)
     {
-        $this->hash[$path] = filemtime($path)." ".md5_file($path);
+        $this->hash[$path] = filemtime($path)." ".md5_file($path)." ".$namespace;
     }
 
     private function fixPathDS($path)
     {
         return str_replace("\\", DIRECTORY_SEPARATOR, str_replace("/", DIRECTORY_SEPARATOR, $path));
+    }
+
+    private function checkFiles()
+    {
+        foreach ($this->hash as $path => $hash)
+        {
+            if(!file_exists($path))
+            {
+                $parts = explode(" ",$hash);
+                if(isset($parts[2]) && isset($this->map['controllers'][$parts[2]]))
+                {
+                    $isError = $this->map['controllers'][$parts[2]]['error'];
+                    $this->removeRoutes($parts[2], $isError);
+                }
+                unset($this->map['controllers'][$parts[2]]);
+                unset($this->hash[$path]);
+            }
+        }
+    }
+
+    private function removeRoutes(string $controller, bool $isError)
+    {
+        if(!$isError)
+        {
+            foreach ($this->routes as $method => $routes)
+            {
+                if($method === "*") continue;
+                $delete = [];
+                foreach ($routes as $r => $c)
+                {
+                    if(stripos($c, $controller) === 0)
+                    {
+                        array_push($delete, $r);
+                    }
+                }
+                foreach ($delete as $route)
+                {
+                    unset($this->routes[$method][$route]);
+                }
+            }
+        }
+        else
+        {
+            if(isset($this->routes['*']))
+            {
+                $delete = [];
+                foreach ($this->routes['*'] as $r => $c)
+                {
+                    if(stripos($c, $controller) === 0)
+                    {
+                        array_push($delete, $r);
+                    }
+                }
+                foreach ($delete as $route)
+                {
+                    unset($this->routes['*'][$route]);
+                }
+            }
+        }
     }
 
     // save map in files
