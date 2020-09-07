@@ -85,7 +85,7 @@ class App
             $this->controllerManager = new ControllerManager($this->mapManager->getMap()['controllers'], $this->filterManager, $this->response);
             $this->setup();
         } catch(\Exception $e) {
-            echo "An error occurred during the app initialisation process: {$e->getMessage()}\n";
+            Logger::write("An error occurred during the app initialisation process: {$e->getMessage()}");
         }
     }
 
@@ -171,16 +171,24 @@ class App
         {
             // error
             $this->response->setResponseCode($e->getCode());
-            if($this->routeManager->isApiUrl($url)) {
-                // api
-                $route = "api/".$e->getCode();
-            } else {
-                $route = $e->getCode();
-            }
-            try {
-                $this->handleRequest('*', $route, ['e' => $e]);
-            } catch(ELayer $exception) {
-                $this->handleRequest('*', $this->routeManager->isApiUrl($url) ? 'api' : '',  ['e' => $e]);
+            if(!$this->routeManager->getActiveRoute()->isError())
+            {
+                if($this->routeManager->isApiUrl($url))
+                {
+                    $route = "api/".$e->getCode();
+                }
+                else
+                {
+                    $route = $e->getCode();
+                }
+                if($this->routeManager->has($route, '*'))
+                {
+                    $this->run('*', $route, ['e' => $e]);
+                }
+                else
+                {
+                    $this->run('*', $this->routeManager->isApiUrl($url) ? 'api' : '',  ['e' => $e]);
+                }
             }
         }
     }
@@ -193,7 +201,7 @@ class App
             $this->response->sendResponse();
             return $this->response->getResponseCode();
         } catch (ELayer $e) {
-            echo "An error occurred during the execution process: {$e->getMessage()}\n";
+            Logger::write("An error occurred during the execution process: {$e->getMessage()}");
             return false;
         }
     }
