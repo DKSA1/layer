@@ -312,8 +312,8 @@ class MapManager
                                 }
                             }
                         }
+                        $this->setHashFile($fileNames[basename($namespace)], $namespace);
                     }
-                    $this->setHashFile($fileNames[basename($namespace)], $namespace);
                 }
             }
         }

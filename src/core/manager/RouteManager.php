@@ -36,7 +36,7 @@ class RouteManager
         $url = trim($url, "/");
         $method = strtolower($method);
         if(array_key_exists($method, $this->routes)) {
-            if(($r = $this->has($url, $method, $matches)))
+            if(($r = $this->has($url, $method, $matches)) !== false)
             {
                 if($params == null)
                     $params = $matches;
@@ -97,9 +97,9 @@ class RouteManager
     }
 
     /**
-     * @return Route
+     * @return Route|null
      */
-    public function getActiveRoute(): Route
+    public function getActiveRoute()
     {
         return $this->activeRoute;
     }
