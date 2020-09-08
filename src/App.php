@@ -171,9 +171,10 @@ class App
         {
             // error
             $this->response->setResponseCode($e->getCode());
-            if(!$this->routeManager->getActiveRoute()->isError())
+            if(!$this->routeManager->getActiveRoute() || !$this->routeManager->getActiveRoute()->isError())
             {
-                if($this->routeManager->isApiUrl($url))
+                $fallbackRoute = $this->routeManager->isApiUrl($url) ? 'api' : '';
+                if($fallbackRoute === 'api')
                 {
                     $route = "api/".$e->getCode();
                 }
@@ -181,13 +182,13 @@ class App
                 {
                     $route = $e->getCode();
                 }
-                if($this->routeManager->has($route, '*'))
+                if($this->routeManager->has($route, '*') !== false)
                 {
                     $this->run('*', $route, ['e' => $e]);
                 }
-                else
+                else if($this->routeManager->has($fallbackRoute, '*') !== false)
                 {
-                    $this->run('*', $this->routeManager->isApiUrl($url) ? 'api' : '',  ['e' => $e]);
+                    $this->run('*', $fallbackRoute,  ['e' => $e]);
                 }
             }
         }

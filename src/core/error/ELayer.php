@@ -13,4 +13,14 @@ class ELayer extends Error
         parent::__construct($message, $code, $previous);
         $this->payload = $payload;
     }
+
+    /**
+     * @return mixed
+     */
+    public function getPayload()
+    {
+        return $this->payload;
+    }
+
+
 }
