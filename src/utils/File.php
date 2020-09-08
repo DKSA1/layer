@@ -114,7 +114,7 @@ class File
         $this->readable = is_readable($this->path);
         $this->size = filesize($this->path);
         $this->type = filetype($this->path);
-        $this->extension = pathinfo($this->absolutePath, PATHINFO_EXTENSION);
+        $this->extension = pathinfo($this->uploadName ? $this->uploadName : $this->absolutePath, PATHINFO_EXTENSION);
         $this->lastAccessTime = fileatime($this->path);
         $this->lastModificationTime = filemtime($this->path);
         $this->creationTime = filectime($this->path);
